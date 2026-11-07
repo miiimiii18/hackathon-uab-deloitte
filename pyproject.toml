@@ -1,0 +1,5 @@
+[tool.pytest.ini_options]
+# Añade la raíz del proyecto al path para que los tests puedan hacer `from src...`
+# también cuando se ejecuta `pytest` a secas (como en el CI), no solo `python -m pytest`.
+pythonpath = ["."]
+testpaths = ["tests"]
