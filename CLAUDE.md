@@ -156,7 +156,9 @@ python -m src.triaje mi_alerta.json                        # alerta nueva en un 
 python -m src.triaje ALR-20261005-000301 --solo-evidencia  # sin LLM
 ```
 
-Piezas del triaje: `src/soc_client.py` (cliente de la API con caché, traza y búsqueda exacta), `src/evidencia.py` (qué se consulta según el runbook) y `src/llm.py` (análisis con el modelo local). Cada consulta a `/logs` tarda unos 2 s porque la API recorre el log entero, así que reunir la evidencia lleva 15–45 s por alerta.
+Piezas del triaje: `src/soc_client.py` (cliente de la API con caché, traza y búsqueda exacta), `src/evidencia.py` (qué se consulta según el runbook) y `src/llm.py` (análisis con el modelo local). Reunir la evidencia lleva ~1 s por alerta; casi todo el tiempo del triaje es del modelo.
+
+**Usad siempre `127.0.0.1` y no `localhost`** en las URLs (`SOC_API_URL`, `OLLAMA_URL`): en Windows, `localhost` prueba primero IPv6, la API solo escucha en IPv4 y cada petición pierde ~2 s. Con `localhost` la evidencia tardaba 20–40 s; con `127.0.0.1`, ~1 s.
 
 El CI (`.github/workflows/ci.yml`) ejecuta `ruff check .` y `pytest -q` en cada push a `main` y en cada Pull Request. Si alguno falla, el PR no está listo.
 
