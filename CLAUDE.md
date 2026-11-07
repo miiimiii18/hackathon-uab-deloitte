@@ -67,7 +67,7 @@ Por orden de importancia para la defensa:
 
 ## Retomar en otro ordenador
 
-Lo que **no** está en git y hay que recrear:
+Guía paso a paso para el equipo: [`docs/arrancar.md`](docs/arrancar.md). Lo que **no** está en git y hay que recrear:
 1. **`.env`** con la clave del LLM del equipo (`LLM_API_KEY`). Pásala por un canal privado; **nunca por git ni por chat**. Modelo de variables en `.env.example`.
 2. **El dataset:** `git clone https://github.com/dttdfr/DTT-UAB-The-Hack.git data/tarvia`.
 3. **Los resultados guardados del modo demo** (`data/out/web/`, ignorada por git). Se regeneran en ~1 min:
