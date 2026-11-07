@@ -1,0 +1,37 @@
+{
+  "alert_id": "INV-04",
+  "created_at": "2026-10-27T11:20:00.000Z",
+  "source_product": "NGFW",
+  "rule_id": "UC-OT-001",
+  "rule_name": "Comunicación no autorizada con la red OT",
+  "severity": "high",
+  "status": "new",
+  "mitre": {
+    "tactic": "Lateral Movement",
+    "technique_id": "T0886",
+    "technique": "Remote Services"
+  },
+  "description": "Un equipo que no es ENG-WS01 ni WMS01 se comunica con la red OT.",
+  "entities": {
+    "hosts": [
+      {
+        "hostname": "WS-BCN-1300",
+        "ip": "10.10.2.70"
+      },
+      {
+        "hostname": "PLC-SORT01",
+        "ip": "10.40.16.21"
+      }
+    ]
+  },
+  "evidence": {
+    "dst_port": 502,
+    "protocol": "Modbus/TCP",
+    "action": "allow",
+    "function_codes": [
+      "write_multiple_registers"
+    ]
+  },
+  "related_events": [],
+  "runbook": "RB-08"
+}

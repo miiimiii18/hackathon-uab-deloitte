@@ -25,7 +25,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
 
-from src.evidencia import reunir_evidencia
+from src.evidencia import normalizar_alerta, reunir_evidencia
 from src.llm import ErrorLLM, analizar_alerta
 from src.policy import aplicar_politica
 from src.soc_client import ErrorSOC, SocClient
@@ -57,6 +57,8 @@ def triar(
     """Reúne la evidencia y, si con_llm, pide el análisis al modelo y aplica la política."""
     cliente = cliente or SocClient()
     inicio = time.perf_counter()
+    # Alertas de fuera del dataset pueden traer campos raros: se normalizan al entrar.
+    alerta = normalizar_alerta(alerta)
     evidencia = reunir_evidencia(alerta, cliente)
     resultado: dict[str, Any] = {
         "alert_id": alerta.get("alert_id"),

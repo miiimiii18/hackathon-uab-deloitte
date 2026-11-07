@@ -1,0 +1,34 @@
+{
+  "alert_id": "INV-01",
+  "created_at": "2026-10-30T09:12:00.000Z",
+  "source_product": "EMAIL_GW",
+  "rule_id": "UC-EML-004",
+  "rule_name": "Petición de cambio de datos bancarios por correo",
+  "severity": "high",
+  "status": "new",
+  "mitre": {
+    "tactic": "Initial Access",
+    "technique_id": "T1566",
+    "technique": "Phishing"
+  },
+  "description": "Correo que solicita cambiar la cuenta bancaria de un proveedor.",
+  "entities": {
+    "users": [
+      {
+        "upn": "ricard.castells@tarvia.example",
+        "display_name": "Ricard Castells"
+      }
+    ],
+    "domains": [
+      "packaging-iberla.example"
+    ]
+  },
+  "evidence": {
+    "sender": "facturacion@packaging-iberla.example",
+    "subject": "URGENTE: actualización de datos bancarios antes del cierre",
+    "body_excerpt": "Les informamos de nuestro nuevo IBAN ES91 2100 0418 4502 0005 1332. Rogamos realicen el pago de las facturas pendientes hoy mismo.",
+    "lookalike_of": "packaging-iberia.example"
+  },
+  "related_events": [],
+  "runbook": "RB-01"
+}

@@ -85,6 +85,10 @@ REGLAS_INTERNAS = {
 # Sección 4: servicios de uso dual que no se bloquean globalmente sin N2.
 USO_DUAL = ("mega.nz", "mega.io", "anydesk")
 TIPOS_OT = {"PLC", "HMI", "Estación de ingeniería"}
+HOSTS_PERMITIDOS_OT = {"ENG-WS01", "WMS01"}
+# Si el modelo dice benign_true_positive con menos confianza que esto y la autorización
+# no se verifica, no se cierra como false_positive: revisión humana.
+CONFIANZA_MINIMA = 0.7
 TIPOS_NEGOCIO = {"TPV", "Frontal web", "Pasarela de pagos"}
 
 Veredicto = Literal["true_positive", "benign_true_positive", "false_positive", "needs_more_info"]
@@ -222,6 +226,33 @@ def criticidad_afectada(alerta: dict[str, Any], evidencia: dict[str, Any]) -> tu
     return "Media", "Sin activo conocido en la CMDB: se asume criticidad Media (dato a revisar)"
 
 
+def violaciones_reglas_duras(alerta: dict[str, Any], evidencia: dict[str, Any]) -> list[str]:
+    """Reglas internas de empresa_tarvia.md que se pueden comprobar con datos.
+
+    - Solo ENG-WS01 y WMS01 pueden hablar con la red OT; cualquier otro acceso necesita un cambio.
+    - Las cuentas adm.* solo pueden usarse desde JUMP01.
+    """
+    entidades = alerta.get("entities") or {}
+    hosts = [str(h.get("hostname", "")) for h in entidades.get("hosts", []) if isinstance(h, dict) and h.get("hostname")]
+    activos = evidencia.get("activos") or {}
+
+    def es_ot(nombre: str) -> bool:
+        a = activos.get(nombre)
+        return isinstance(a, dict) and (a.get("zone") == "LOGISTICS-OT" or a.get("type") in TIPOS_OT)
+
+    violaciones = []
+    ot = [h for h in hosts if es_ot(h)]
+    otros = [h for h in hosts if not es_ot(h) and h.upper() not in HOSTS_PERMITIDOS_OT]
+    if ot and otros:
+        violaciones.append(f"{', '.join(otros)} se comunica con la red OT ({', '.join(ot)}) y solo pueden ENG-WS01 y WMS01")
+    admins = [str(u.get("upn", "")) for u in entidades.get("users", []) if isinstance(u, dict)
+              and str(u.get("upn", "")).lower().startswith("adm.")]
+    fuera = [h for h in hosts if h.upper() != "JUMP01"]
+    if admins and fuera:
+        violaciones.append(f"cuenta {', '.join(admins)} usada desde {', '.join(fuera)} (las cuentas adm.* solo desde JUMP01)")
+    return violaciones
+
+
 def identidad_privilegiada(evidencia: dict[str, Any]) -> list[str]:
     """Usuarios VIP o privilegiados según el directorio (no según el LLM)."""
     return [
@@ -289,15 +320,39 @@ def aplicar_politica(alerta: dict[str, Any], evidencia: dict[str, Any], analisis
         senales.referencia_autorizacion, evidencia, alerta.get("created_at", ""), ips_alerta
     )
     if veredicto == "benign_true_positive" and not autorizacion:
-        veredicto = "false_positive"
-        avisos.append(
-            "El modelo dijo benign_true_positive, pero no citó ninguna autorización verificable "
-            "(un cambio o flujo del calendario vigente a la hora de la alerta, o una regla interna "
-            "de Tarvia)" + (f": {rechazo}" if rechazo else "") + ". Se trata como false_positive: "
-            "revisad que la actividad sea realmente legítima."
-        )
+        # ¿Hay motivos para desconfiar? Una autorización real que NO encaja (otra fecha,
+        # otra IP, una regla que no se cumple) puede ser una tapadera; y si el propio modelo
+        # duda o pide escalar, cerrarla sería arriesgado. Entonces: revisión humana.
+        no_encaja = any(m in rechazo for m in ("es del", "solo autoriza el origen", "no se cumple"))
+        riesgo = no_encaja or analisis.escalar_sugerido or analisis.confidence < CONFIANZA_MINIMA
+        detalle = f": {rechazo}" if rechazo else ""
+        if riesgo:
+            veredicto = "needs_more_info"
+            motivo = ("la autorización que alega existe pero no cubre esta alerta, y eso puede ser una tapadera"
+                      if no_encaja else "el propio modelo duda o sugiere escalar")
+            avisos.append(
+                "El modelo dijo benign_true_positive, pero la autorización no se ha podido verificar"
+                f"{detalle}. Como {motivo}, no se cierra: pasa a needs_more_info para que lo revise una persona."
+            )
+        else:
+            veredicto = "false_positive"
+            avisos.append(
+                "El modelo dijo benign_true_positive, pero no citó ninguna autorización verificable "
+                "(un cambio o flujo del calendario vigente a la hora de la alerta, o una regla interna "
+                f"de Tarvia){detalle}. Se trata como false_positive: revisad que la actividad sea realmente legítima."
+            )
     elif rechazo:
         avisos.append(f"El modelo citó una autorización que no se ha podido verificar: {rechazo}.")
+
+    # Reglas duras de Tarvia: si se incumplen y no hay autorización verificada, el código no
+    # deja cerrar la alerta como false_positive aunque el modelo lo diga.
+    violaciones = [] if autorizacion else violaciones_reglas_duras(alerta, evidencia)
+    if violaciones and veredicto in ("false_positive", "benign_true_positive"):
+        avisos.append(
+            f"El modelo dijo {veredicto}, pero se incumple una regla interna de Tarvia sin cambio aprobado: "
+            f"{'; '.join(violaciones)}. No se cierra: pasa a needs_more_info para que lo revise una persona."
+        )
+        veredicto = "needs_more_info"
 
     # 2. Severidad.
     sev_regla = alerta.get("severity") if alerta.get("severity") in SEVERIDADES else "medium"

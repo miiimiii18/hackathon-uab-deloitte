@@ -13,7 +13,7 @@ from src.policy import (
 )
 
 
-def analisis(verdict="true_positive", acciones=(), escalar=False, **senales) -> AnalisisLLM:
+def analisis(verdict="true_positive", acciones=(), escalar=False, confianza=0.9, **senales) -> AnalisisLLM:
     base = {
         "ejecucion_o_acceso_confirmado": False,
         "identidad_vip_o_privilegiada": False,
@@ -23,7 +23,7 @@ def analisis(verdict="true_positive", acciones=(), escalar=False, **senales) -> 
         "referencia_autorizacion": "",
     }
     return AnalisisLLM(
-        title="t", verdict=verdict, confidence=0.9, summary="s", evidence=[], mitre=[],
+        title="t", verdict=verdict, confidence=confianza, summary="s", evidence=[], mitre=[],
         senales={**base, **senales}, acciones_sugeridas=list(acciones),
         escalar_sugerido=escalar, motivo_escalado="", open_questions=[],
     )
@@ -243,4 +243,71 @@ def test_la_politica_usa_las_ips_de_la_alerta():
     escaneo = {**alerta("low", "WAF", "UC-WEB-001"), "created_at": "2026-10-08T10:43:00.000Z",
                "entities": {"ips": ["198.18.46.60"]}}
     d = aplicar_politica(escaneo, ev, a)
-    assert d.veredicto == "false_positive" and "solo autoriza el origen" in " ".join(d.avisos)
+    # La autorización existe pero no encaja (otra IP): no se cierra, revisión humana.
+    assert d.veredicto == "needs_more_info" and "solo autoriza el origen" in " ".join(d.avisos)
+
+
+# --- Cuándo NO se cierra como false_positive --------------------------------------------------
+
+LOGISOFT = {"id": "CHG-2026-1071", "titulo": "Actualización del WMS por Logisoft",
+            "inicio": "2026-10-16 21:00", "fin": "2026-10-16 23:59"}
+
+
+def test_autorizacion_de_otro_dia_no_cierra_la_alerta():
+    # Caso real: acceso de Logisoft un domingo de madrugada justificado con el cambio del día 16.
+    a = analisis("benign_true_positive", referencia_autorizacion="CHG-2026-1071")
+    vpn = {**alerta("low", "VPN", "UC-VPN-001"), "created_at": "2026-10-18T00:48:00.000Z"}
+    d = aplicar_politica(vpn, {"cambios_aprobados": [LOGISOFT]}, a)
+    assert d.veredicto == "needs_more_info" and d.decision == "revisar"
+    assert any("tapadera" in x for x in d.avisos)
+
+
+def test_btp_sin_autorizacion_con_dudas_del_modelo_no_se_cierra():
+    dudoso = analisis("benign_true_positive", confianza=0.5)
+    pide_escalar = analisis("benign_true_positive", escalar=True)
+    for a in (dudoso, pide_escalar):
+        assert aplicar_politica(alerta("medium"), {"activos": PORTATIL}, a).veredicto == "needs_more_info"
+
+
+def test_btp_sin_autorizacion_y_sin_riesgo_sigue_siendo_falso_positivo():
+    a = analisis("benign_true_positive", referencia_autorizacion="Simulacro de phishing de RRHH")
+    assert aplicar_politica(alerta("low", "EMAIL_GW", "UC-EML-001"), {}, a).veredicto == "false_positive"
+
+
+def test_needs_more_info_de_severidad_alta_se_escala():
+    a = analisis("benign_true_positive", escalar=True, referencia_autorizacion="pentest")
+    lsass = {**alerta("critical", "EDR", "UC-EDR-005"), "entities": {"hosts": [{"hostname": "JUMP01"}]}}
+    d = aplicar_politica(lsass, {"activos": {"JUMP01": {"type": "Servidor de salto", "criticality": "Alta"}}}, a)
+    assert d.veredicto == "needs_more_info" and d.decision == "escalar"
+
+
+# --- Reglas duras de Tarvia --------------------------------------------------------------------
+
+OT = {"WS-BCN-1300": {"type": "Portátil", "criticality": "Media", "zone": "HQ-USERS"},
+      "PLC-SORT01": {"type": "PLC", "criticality": "Alta", "zone": "LOGISTICS-OT"},
+      "ENG-WS01": {"type": "Estación de ingeniería", "criticality": "Alta", "zone": "LOGISTICS-OT"},
+      "WMS01": {"type": "Servidor de aplicaciones", "criticality": "Alta", "zone": "LOGISTICS-IT"}}
+
+
+def test_portatil_hablando_con_ot_no_puede_ser_falso_positivo():
+    modbus = {**alerta("high", "NGFW", "UC-OT-001"),
+              "entities": {"hosts": [{"hostname": "WS-BCN-1300"}, {"hostname": "PLC-SORT01"}]}}
+    d = aplicar_politica(modbus, {"activos": OT}, analisis("false_positive"))
+    assert d.veredicto == "needs_more_info" and d.decision == "escalar"  # high × Alta = high
+    assert any("red OT" in x for x in d.avisos)
+
+
+def test_wms01_si_puede_hablar_con_ot():
+    from src.policy import violaciones_reglas_duras
+    permitido = {"entities": {"hosts": [{"hostname": "WMS01"}, {"hostname": "PLC-SORT01"}]}}
+    assert violaciones_reglas_duras(permitido, {"activos": OT}) == []
+
+
+def test_cuenta_adm_fuera_de_jump01():
+    from src.policy import violaciones_reglas_duras
+    fuera = {"entities": {"users": [{"upn": "adm.aortega@tarvia.example"}], "hosts": [{"hostname": "PRINT01"}]}}
+    dentro = {"entities": {"users": [{"upn": "adm.aferrer@tarvia.example"}], "hosts": [{"hostname": "JUMP01"}]}}
+    assert "PRINT01" in violaciones_reglas_duras(fuera, {})[0]
+    assert violaciones_reglas_duras(dentro, {}) == []
+    d = aplicar_politica({**alerta("high"), **fuera}, {}, analisis("false_positive"))
+    assert d.veredicto == "needs_more_info"

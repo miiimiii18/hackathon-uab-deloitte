@@ -122,3 +122,39 @@ def test_busca_los_cambios_que_cita_la_propia_alerta():
 
     ev = reunir_evidencia(alerta, ConCalendario())
     assert "CHG-2026-1078" in [c["id"] for c in ev["cambios_aprobados"]]
+
+
+# --- Normalización de alertas con campos raros (alertas nuevas del domingo) -------------
+
+
+def test_normalizar_alerta_arregla_campos_raros():
+    from src.evidencia import normalizar_alerta
+
+    rara = {"alert_id": "X", "severity": " HIGH ", "evidence": None, "related_events": "EDR-1",
+            "entities": {"users": ["ana@tarvia.example", None, 42], "hosts": ["WS-1", {"hostname": ""}],
+                         "ips": ["10.0.0.1", 7, None], "domains": None, "files": "no-es-lista", "customers": ["C1"]}}
+    a = normalizar_alerta(rara)
+    assert a["severity"] == "high"
+    assert a["evidence"] == {} and a["related_events"] == ["EDR-1"]
+    assert a["entities"]["users"] == [{"upn": "ana@tarvia.example"}]
+    assert a["entities"]["hosts"] == [{"hostname": "WS-1"}, {"hostname": ""}]
+    assert a["entities"]["ips"] == ["10.0.0.1"]
+    assert a["entities"]["customers"] == [{"customer_id": "C1"}]
+    assert "domains" not in a["entities"] and "files" not in a["entities"]
+    assert rara["severity"] == " HIGH "  # no modifica la original
+
+
+def test_normalizar_alerta_minima_o_vacia():
+    from src.evidencia import normalizar_alerta
+
+    assert normalizar_alerta({"alert_id": "Y"})["entities"] == {}
+    assert normalizar_alerta(None)["entities"] == {}
+
+
+def test_reunir_evidencia_no_se_rompe_con_campos_raros():
+    from src.evidencia import normalizar_alerta
+
+    rara = normalizar_alerta({"alert_id": "Z", "created_at": "no-es-fecha",
+                              "entities": {"users": ["carmen.serra@tarvia.example"], "hosts": ["WS-BCN-1375"]}})
+    ev = reunir_evidencia(rara, ClienteFalso())
+    assert "carmen.serra@tarvia.example" in ev["usuarios"]

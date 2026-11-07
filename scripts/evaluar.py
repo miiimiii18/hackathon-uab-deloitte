@@ -23,7 +23,8 @@ from src.triaje import triar_lote
 
 
 def evaluar(casos: list[dict], repeticiones: int, paralelo: int) -> list[dict]:
-    referencias = [c["alert_id"] for c in casos for _ in range(repeticiones)]
+    # «fichero» = alerta que no está en el dataset (p. ej., las inventadas para la prueba de robustez).
+    referencias = [c.get("fichero") or c["alert_id"] for c in casos for _ in range(repeticiones)]
     resultados = triar_lote(referencias, en_paralelo=paralelo)
     filas = []
     for i, caso in enumerate(casos):
