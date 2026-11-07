@@ -3,7 +3,7 @@
 - **Categoría:** IA + ciberseguridad (SOC)
 - **Responsable:** todo el equipo TEMIPO
 - **Estado:** 🟢 resuelto
-- **Resultado:** 150/150 alertas de la muestra triadas sin errores; 85 % de acierto en el gold set (107/126 triajes, 42 casos × 3 repeticiones).
+- **Resultado:** 150/150 alertas de la muestra triadas sin errores; 86 % de veredictos acertados en el gold set (72/84 triajes, 42 casos × 2 repeticiones; severidad 89 %, decisión 90 %).
 
 ## Enunciado
 Para cada alerta del SIEM: entender qué ha pasado, enriquecer con contexto e inteligencia, dar veredicto, severidad y recomendación (cerrar o escalar). Salida en el formato `ticket_salida.schema.json` de Deloitte.

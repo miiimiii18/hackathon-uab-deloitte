@@ -6,15 +6,19 @@ Documento para la defensa y base del panel «Lo que no resuelve» de la web. Las
 
 - Las alertas del dataset **no traen la respuesta correcta**. Medimos contra 42 alertas etiquetadas por nosotros (`evaluacion/casos.json`), más 9 inventadas.
 - Esas etiquetas las ha revisado Claude con una segunda pasada de evidencia; **no hay revisión humana independiente**.
-- Resultado: 107 de 126 triajes correctos (85 %), con 42 casos repetidos 3 veces. Incidentes 77 %, ruido 78 %. Es una estimación sobre un conjunto pequeño, no una garantía.
-- Solo medimos el **veredicto**. Todavía no medimos con el mismo rigor si la severidad final y el escalado son los esperados.
+- Última medición (7-nov, 42 casos repetidos 2 veces): **veredicto 72 de 84 (86 %), severidad 66 de 74 (89 %) y decisión (cerrar, revisar o escalar) 63 de 70 (90 %)**. Incidentes 81 %, ruido 77 %. Es una estimación sobre un conjunto pequeño, no una garantía.
+- La severidad y la decisión se miden solo en los 37 casos que tienen etiqueta (el resto es ambiguo y no cuenta). Esas etiquetas las escribimos antes de ejecutar la evaluación, pero siguen siendo nuestras.
 
 ## 2. La IA se equivoca y no siempre da la misma respuesta
 
-- 8 de los 42 casos dieron veredictos distintos entre repeticiones.
+- 6 de los 42 casos dieron veredictos distintos entre repeticiones (y 2 de las 9 alertas inventadas).
 - Fallos que se repiten:
   - Accesos de un proveedor externo de madrugada y fuera de horario: la IA los deja en «necesita más información» en vez de marcarlos como ataque.
   - Un «túnel DNS» que en realidad es un antivirus consultando reputación: la IA lo da por ataque.
+- **El fallo más grave: a veces se cierra un ataque.** Los accesos de madrugada del proveedor externo y un volcado de credenciales con instrucciones ocultas salieron como falsa alarma en una de las dos repeticiones y se habrían cerrado. Por eso la persona debe revisar también los cierres, no solo las escaladas.
+- También ocurre al revés: algunas actividades legítimas (fotos de campaña enviadas a un servicio de transferencia, un bucket publicado por Terraform, un antivirus) se escalan como ataques críticos sin necesidad.
+- Una autorización verificable (el escaneo semanal de seguridad) a veces pasa a revisión humana en vez de cerrarse.
+- La confianza que da la IA ayuda, pero no es una garantía: media 0,88 cuando acierta y 0,67 cuando falla, aunque 2 de 15 fallos llevaban 0,9 o más. Con un indicador desconocido casi no baja.
 - Por eso la severidad, el escalado y los permisos **no los decide la IA**: están en código con tests, y una persona aprueba toda acción que no sea de bajo riesgo.
 - Un triaje falló por tiempo (más de 300 s) porque el servidor de modelos es compartido con los demás equipos.
 

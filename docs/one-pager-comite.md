@@ -23,12 +23,12 @@ La IA **no ejecuta nada por su cuenta**. Aislar un equipo o desactivar una cuent
 ## Qué aporta (medido en el piloto)
 - **Rapidez:** unos 13 segundos por alerta; diez alertas en aproximadamente un minuto.
 - **Coste:** cero, porque usa el modelo gratuito de la organización del reto.
-- **Acierto:** 85 % en un conjunto de 42 casos que hemos revisado a mano. No se ha dejado engañar en ninguna de las 16 pruebas con instrucciones ocultas en correos y mensajes.
+- **Acierto:** en un conjunto de 42 casos que hemos revisado a mano acierta el 86 % de las conclusiones, el 89 % de las gravedades y el 90 % de las decisiones de cerrar, revisar o escalar. No se ha dejado engañar en ninguna de las 16 pruebas con instrucciones ocultas en correos y mensajes.
 - **Explicación:** cada conclusión indica las fuentes y las reglas aplicadas, para que la persona pueda comprobarla.
 - **Prudencia:** una actividad «autorizada» solo se acepta si existe el cambio aprobado, en esa fecha y desde ese origen. Una excusa escrita en el propio texto de la alerta no vale.
 
 ## Qué no resuelve
-- El acierto es una estimación sobre pocos casos y sin revisión externa: puede equivocarse, y a veces da respuestas distintas ante la misma alerta.
+- El acierto es una estimación sobre pocos casos y sin revisión externa: puede equivocarse, y a veces da respuestas distintas ante la misma alerta. En las pruebas, algún ataque real se llegó a clasificar como falsa alarma en una de las repeticiones, y algunas falsas alarmas se escalaron: por eso una persona debe revisar también lo que el sistema propone cerrar.
 - Agrupa en un solo caso las alertas relacionadas que están en la cola, pero no busca por su cuenta otras alertas del mismo ataque ni reconstruye su cronología completa.
 - Depende de que el inventario y la inteligencia de amenazas estén al día. Un dato desconocido no se considera seguro.
 - No se ha probado con el volumen real de un SOC (miles de alertas al día).
