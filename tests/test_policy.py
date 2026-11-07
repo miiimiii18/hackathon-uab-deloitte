@@ -119,12 +119,50 @@ def test_btp_con_cambio_de_la_evidencia_se_mantiene():
 
 
 def test_un_cambio_inventado_no_vale():
-    assert verificar_autorizacion("CHG-2026-9999", {"cambios_aprobados": [{"id": "CHG-2026-1049"}]}) == ""
+    autorizacion, rechazo = verificar_autorizacion("CHG-2026-9999", {"cambios_aprobados": [{"id": "CHG-2026-1049"}]})
+    assert autorizacion == "" and "no aparece" in rechazo
 
 
-def test_reglas_internas_de_tarvia_valen_como_autorizacion():
-    assert "Pentest" in verificar_autorizacion("Pentest externo contratado", {})
-    assert "gestoría" in verificar_autorizacion("Envío de nóminas a la Gestoría Pons", {})
+# Cambio real del calendario: pentest del 8 al 10 de octubre (hora de España = UTC+2).
+PENTEST = {"id": "CHG-2026-1042", "titulo": "Pentest externo de la tienda online",
+           "inicio": "2026-10-08 08:00", "fin": "2026-10-10 18:00"}
+
+
+def test_cambio_dentro_de_su_ventana_vale():
+    autorizacion, _ = verificar_autorizacion("CHG-2026-1042", {"cambios_aprobados": [PENTEST]}, "2026-10-09T10:00:00.000Z")
+    assert autorizacion.startswith("CHG-2026-1042")
+
+
+def test_cambio_fuera_de_su_ventana_no_vale():
+    autorizacion, rechazo = verificar_autorizacion("CHG-2026-1042", {"cambios_aprobados": [PENTEST]}, "2026-10-05T18:56:56.000Z")
+    assert autorizacion == "" and "2026-10-08 08:00" in rechazo
+
+
+def test_citar_el_pentest_de_palabra_no_basta():
+    # Un atacante puede escribir «es parte del pentest»: sin el CHG vigente no vale.
+    assert verificar_autorizacion("Forma parte del pentest contratado", {}, "2026-10-09T10:00:00.000Z")[0] == ""
+
+
+def test_flujo_aprobado_tambien_vale():
+    nominas = {"id": "FLUJO-0007", "titulo": "Nóminas a la gestoría", "inicio": "2026-01-01 00:00", "fin": "2026-12-31 23:59"}
+    autorizacion, _ = verificar_autorizacion("Flujo FLUJO-0007", {"cambios_aprobados": [nominas]}, "2026-10-28T09:00:00.000Z")
+    assert autorizacion.startswith("FLUJO-0007")
+
+
+def test_reglas_internas_con_su_comprobacion():
+    # ext.logisoft: lunes a viernes de 8 a 18 h (España). 7-oct-2026 es miércoles.
+    assert "ext.logisoft" in verificar_autorizacion("acceso de ext.logisoft", {}, "2026-10-07T10:00:00.000Z")[0]
+    sabado = verificar_autorizacion("acceso de ext.logisoft", {}, "2026-10-10T10:00:00.000Z")
+    assert sabado[0] == "" and "no se cumple" in sabado[1]
+    assert "svc_backup" in verificar_autorizacion("svc_backup excluida de MFA", {})[0]
+
+
+def test_aprobacion_falsa_dentro_de_un_correo_no_autoriza():
+    # Caso real del dataset: un correo de phishing con texto oculto que dice venir del SOC.
+    a = analisis("benign_true_positive", referencia_autorizacion="Revisado por el equipo SOC (ticket SEC-4471)")
+    d = aplicar_politica(alerta("low", "EMAIL_GW", "UC-EML-001"), {}, a)
+    assert d.veredicto == "false_positive" and d.autorizacion == ""
+    assert any("autorización verificable" in x for x in d.avisos)
 
 
 # --- Escalado ----------------------------------------------------------------------------------
