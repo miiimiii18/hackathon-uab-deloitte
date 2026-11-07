@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import collections
 import json
+import sys
 import time
 from pathlib import Path
 
@@ -108,17 +109,20 @@ def main() -> None:
     parser.add_argument("--salida", type=Path, default=Path("data/out/evaluacion"))
     args = parser.parse_args()
 
+    # En Windows, con la salida redirigida a un fichero, la consola usa cp1252 y no puede escribir los emojis.
+    sys.stdout.reconfigure(encoding="utf-8")
     casos = json.loads(args.casos.read_text(encoding="utf-8"))
     inicio = time.perf_counter()
     filas = evaluar(casos, args.repeticiones, args.paralelo)
     texto = informe(filas)
-    print(texto)
-    print(f"\n{len(casos)} casos × {args.repeticiones} en {time.perf_counter() - inicio:.0f} s")
 
+    # Primero se guarda: un fallo al imprimir no debe tirar a la basura minutos de triajes.
     args.salida.mkdir(parents=True, exist_ok=True)
     marca = time.strftime("%Y%m%d-%H%M%S")
     (args.salida / f"evaluacion-{marca}.json").write_text(json.dumps(filas, ensure_ascii=False, indent=2), encoding="utf-8")
     (args.salida / f"evaluacion-{marca}.txt").write_text(texto, encoding="utf-8")
+    print(texto)
+    print(f"\n{len(casos)} casos × {args.repeticiones} en {time.perf_counter() - inicio:.0f} s")
     print(f"Resultados guardados en {args.salida}/evaluacion-{marca}.*")
 
 
