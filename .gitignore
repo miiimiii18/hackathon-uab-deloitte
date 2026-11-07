@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.ipynb_checkpoints/
+
+# Secretos
+.env
+*.key
+*.pem
+secrets/
+
+# Datos (no se suben)
+data/*
+!data/README.md
+
+# Capturas de red y volcados
+*.pcap
+*.pcapng
+*.dump
+
+# Modelos pesados
+*.pt
+*.pth
+*.h5
+*.pkl
+*.joblib
+
+# Sistema / editores
+.DS_Store
+.vscode/
+.idea/
