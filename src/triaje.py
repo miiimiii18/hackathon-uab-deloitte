@@ -1,6 +1,6 @@
 """Triaje de una alerta de punta a punta: alerta → evidencia → análisis del LLM.
 
-Uso (con la API del SOC arrancada y, para el análisis, Ollama abierto):
+Uso (con la API del SOC arrancada y, para el análisis, LLM_API_KEY en .env):
     python -m src.triaje ALR-20261005-000301                  # alerta del dataset
     python -m src.triaje mi_alerta.json                       # alerta nueva en un fichero
     python -m src.triaje ALR-20261005-000301 --solo-evidencia # sin LLM: ver qué se consulta

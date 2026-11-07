@@ -42,7 +42,7 @@ MAX_INDICADORES = 6
 MAX_EVENTOS_RELACIONADOS = 10
 # Tope de evidencia. Este texto (JSON en español) sale a ~2,8 caracteres por token,
 # así que 14.000 caracteres ≈ 5.000 tokens. Con el prompt fijo (~5.000) y la alerta,
-# quedan ~6.000 tokens para la respuesta con LLM_NUM_CTX=16384.
+# cada petición ronda los 10.000 tokens: más evidencia = más lenta y más ruido.
 MAX_CARACTERES = 14_000
 
 # Solo las redes internas «de verdad». No se usa ip.is_private porque marca como
