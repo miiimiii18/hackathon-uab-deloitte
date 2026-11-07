@@ -179,7 +179,8 @@ def reunir_evidencia(alerta: dict[str, Any], cliente: SocClient) -> dict[str, An
 
     # 3. Cambios aprobados y flujos que mencionan a las entidades.
     cambios: dict[str, dict] = {}
-    for termino in [upn.split("@")[0] for upn in e["usuarios"]] + e["hosts"] + e["ips"]:
+    # También por dominio: p. ej., el pentest (CHG-2026-1042) menciona www.tarvia.example.
+    for termino in [upn.split("@")[0] for upn in e["usuarios"]] + e["hosts"] + e["ips"] + e["dominios"]:
         for c in cliente.cambios(termino):
             cambios[c.get("id", str(c))] = compactar(c)
     ev["cambios_aprobados"] = list(cambios.values())

@@ -13,11 +13,13 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
 from pydantic import BaseModel
 
 from src.llm import AnalisisLLM
+from src.soc_client import a_fecha
 
 SEVERIDADES = ["informational", "low", "medium", "high", "critical"]
 CRITICIDADES = ["Baja", "Media", "Alta", "Crítica"]
@@ -51,18 +53,31 @@ CRITICIDAD_POR_PRODUCTO = {
 # Sección 5: reglas cuyo true_positive es fraude económico.
 REGLAS_FRAUDE = {"UC-EML-004", "UC-WEB-003"}
 
-# Autorizaciones que se aceptan como «citables» además de un cambio CHG-... de la
-# evidencia: reglas internas y flujos aprobados de empresa_tarvia.md.
+# Autorizaciones. La principal es un cambio (CHG-...) o flujo (FLUJO-...) del calendario
+# de cambios que aparezca en la evidencia y cuya ventana de fechas cubra la alerta: así
+# se verifican el pentest (CHG-2026-1042), los escaneos de NESSUS01, las nóminas a la
+# gestoría (FLUJO-0007)... con DATOS, no con palabras que un atacante podría escribir.
+PATRON_CAMBIO = re.compile(r"\b(?:CHG|FLUJO)-\d+(?:-\d+)?\b", re.IGNORECASE)
+# Horas del calendario: hora de España sin zona; en el periodo del dataset, UTC+2.
+DESFASE_ESPANA = timedelta(hours=2)
+TOLERANCIA = timedelta(hours=1)
+
+
+def _en_horario_logisoft(momento: datetime | None) -> bool:
+    """ext.logisoft: de lunes a viernes, de 8 a 18 h (hora de España)."""
+    if momento is None:
+        return False
+    local = momento + DESFASE_ESPANA
+    return local.weekday() < 5 and 8 <= local.hour < 18
+
+
+# Reglas internas de empresa_tarvia.md que NO están en el calendario de cambios, con su
+# comprobación (recibe la hora UTC de la alerta).
 REGLAS_INTERNAS = {
-    "pentest": "Pentest externo contratado (8–10 de octubre)",
-    "nessus01": "Escaneo semanal de NESSUS01 (miércoles 01:00–05:00, salvo OT)",
-    "gestoria": "Envío de nóminas a la gestoría (flujo aprobado)",
-    "nomina": "Envío de nóminas a la gestoría (flujo aprobado)",
-    "logisoft": "Acceso de ext.logisoft a WMS01 (L–V, 8–18 h)",
-    "svc_backup": "svc_backup excluida de MFA (riesgo aceptado en 2024)",
-    "teamviewer": "TeamViewer Corporate gestionado por IT (herramienta aprobada)",
+    "svc_backup": ("svc_backup excluida de MFA (riesgo aceptado en 2024)", lambda m: True),
+    "teamviewer": ("TeamViewer Corporate gestionado por IT (herramienta aprobada)", lambda m: True),
+    "logisoft": ("Acceso de ext.logisoft a WMS01 (L–V, 8–18 h)", _en_horario_logisoft),
 }
-PATRON_CAMBIO = re.compile(r"CHG-\d{4}-\d+", re.IGNORECASE)
 
 # Sección 4: servicios de uso dual que no se bloquean globalmente sin N2.
 USO_DUAL = ("mega.nz", "mega.io", "anydesk")
@@ -125,20 +140,42 @@ def _es_verdad(valor: Any) -> bool:
 # --- 1. Verificar el veredicto --------------------------------------------------------
 
 
-def verificar_autorizacion(referencia: str, evidencia: dict[str, Any]) -> str:
-    """Devuelve la autorización verificada que cita el LLM, o "" si no es verificable.
+def _fecha_calendario(texto: str) -> datetime | None:
+    """«2026-10-08 08:00» (hora de España) → datetime en UTC."""
+    try:
+        return datetime.strptime(texto.strip(), "%Y-%m-%d %H:%M").replace(tzinfo=UTC) - DESFASE_ESPANA
+    except (AttributeError, ValueError):
+        return None
 
-    Vale un cambio CHG-... que aparezca en la evidencia o una regla interna de Tarvia.
+
+def verificar_autorizacion(referencia: str, evidencia: dict[str, Any], momento: str = "") -> tuple[str, str]:
+    """Comprueba la autorización que cita el LLM. Devuelve (autorización, motivo_de_rechazo).
+
+    Vale un CHG-/FLUJO- que esté en los cambios de la evidencia Y cuya ventana de fechas
+    cubra la hora de la alerta, o una regla interna de Tarvia que se cumpla a esa hora.
+    El texto que pone el LLM puede venir del atacante, así que nunca basta con citarlo.
     """
-    cambios = {str(c.get("id", "")).upper() for c in evidencia.get("cambios_aprobados", []) if isinstance(c, dict)}
-    for chg in PATRON_CAMBIO.findall(referencia or ""):
-        if chg.upper() in cambios:
-            return f"Cambio aprobado {chg.upper()} (encontrado en la evidencia)"
+    hora = a_fecha(momento)
+    cambios = {str(c.get("id", "")).upper(): c for c in evidencia.get("cambios_aprobados", []) if isinstance(c, dict)}
+    rechazos: list[str] = []
+    for ident in (i.upper() for i in PATRON_CAMBIO.findall(referencia or "")):
+        cambio = cambios.get(ident)
+        if cambio is None:
+            rechazos.append(f"{ident} no aparece en el calendario de cambios consultado")
+            continue
+        inicio, fin = _fecha_calendario(cambio.get("inicio", "")), _fecha_calendario(cambio.get("fin", ""))
+        if hora is None or inicio is None or fin is None:
+            return f"{ident}: {cambio.get('titulo', '')} (fechas sin comprobar)", ""
+        if inicio - TOLERANCIA <= hora <= fin + TOLERANCIA:
+            return f"{ident}: {cambio.get('titulo', '')} ({cambio.get('inicio')} – {cambio.get('fin')})", ""
+        rechazos.append(f"{ident} es del {cambio.get('inicio')} al {cambio.get('fin')} y la alerta es de otro momento")
     texto = _sin_acentos(referencia or "")
-    for clave, descripcion in REGLAS_INTERNAS.items():
+    for clave, (descripcion, se_cumple) in REGLAS_INTERNAS.items():
         if clave in texto:
-            return f"Regla interna: {descripcion}"
-    return ""
+            if se_cumple(hora):
+                return f"Regla interna: {descripcion}", ""
+            rechazos.append(f"la regla interna «{descripcion}» no se cumple a la hora de la alerta")
+    return "", "; ".join(rechazos)
 
 
 # --- 2. Criticidad y severidad ----------------------------------------------------------
@@ -221,14 +258,19 @@ def aplicar_politica(alerta: dict[str, Any], evidencia: dict[str, Any], analisis
 
     # 1. Veredicto: benign_true_positive solo con autorización verificable.
     veredicto = analisis.verdict
-    autorizacion = verificar_autorizacion(senales.referencia_autorizacion, evidencia)
+    autorizacion, rechazo = verificar_autorizacion(
+        senales.referencia_autorizacion, evidencia, alerta.get("created_at", "")
+    )
     if veredicto == "benign_true_positive" and not autorizacion:
         veredicto = "false_positive"
         avisos.append(
             "El modelo dijo benign_true_positive, pero no citó ninguna autorización verificable "
-            "(un cambio aprobado de la evidencia o una regla interna de Tarvia). Se trata como "
-            "false_positive: revisad que la actividad sea realmente legítima."
+            "(un cambio o flujo del calendario vigente a la hora de la alerta, o una regla interna "
+            "de Tarvia)" + (f": {rechazo}" if rechazo else "") + ". Se trata como false_positive: "
+            "revisad que la actividad sea realmente legítima."
         )
+    elif rechazo:
+        avisos.append(f"El modelo citó una autorización que no se ha podido verificar: {rechazo}.")
 
     # 2. Severidad.
     sev_regla = alerta.get("severity") if alerta.get("severity") in SEVERIDADES else "medium"
