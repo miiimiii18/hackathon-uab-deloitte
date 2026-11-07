@@ -9,6 +9,7 @@ const CLAVE_DEMO = "temipo.demo";
 
 export const estado = {
   filas: new Map(), // id → { id, meta, etapa, resumen, error }
+  grupos: new Map(), // id de alerta → grupo (alertas del mismo ataque con su ticket único)
   pegadas: {}, // alertas pegadas o subidas (no están en el dataset): id → alerta completa
   demo: false,
   servidor: null,
@@ -41,6 +42,13 @@ function aplicarResumen(f, resumen) {
   f.etapa = f.error ? "error" : "listo";
 }
 
+// Qué alertas triadas forman parte del mismo ataque. Lo calcula el servidor; si falla, la cola sigue sin grupos.
+export async function cargarGrupos() {
+  const grupos = await api.grupos().catch(() => []);
+  estado.grupos = new Map(grupos.flatMap((g) => g.alert_ids.map((id) => [id, g])));
+  avisar();
+}
+
 export async function iniciar() {
   estado.demo = leer(CLAVE_DEMO, false);
   estado.pegadas = leer(CLAVE_PEGADAS, {});
@@ -61,6 +69,7 @@ export async function iniciar() {
   }
   guardarCola();
   avisar();
+  await cargarGrupos();
 }
 
 const resumenPegada = (a) => ({ alert_id: a.alert_id, rule_id: a.rule_id, rule_name: a.rule_name ?? a.rule_id, severity: a.severity, source_product: a.source_product, created_at: a.created_at });
@@ -122,6 +131,7 @@ export async function triarFilas(ids, paralelo = 5) {
     estado.segundos = (performance.now() - inicio) / 1000;
     estado.triando = false;
     avisar();
+    await cargarGrupos();
   }
 }
 

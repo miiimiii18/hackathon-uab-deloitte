@@ -311,3 +311,19 @@ def test_cuenta_adm_fuera_de_jump01():
     assert violaciones_reglas_duras(dentro, {}) == []
     d = aplicar_politica({**alerta("high"), **fuera}, {}, analisis("false_positive"))
     assert d.veredicto == "needs_more_info"
+
+
+def test_un_grupo_de_alertas_se_escala_con_la_mayor_severidad():
+    from src.policy import decision_de_grupo
+
+    d = decision_de_grupo(["low", "high", "medium"], ["true_positive de severidad high"], {"UC-A", "UC-B"})
+    assert d["severidad"] == "high" and d["decision"] == "escalar"
+    assert d["motivos_escalado"][0].startswith("3 alertas relacionadas (2 reglas)")
+    assert "true_positive de severidad high" in d["motivos_escalado"]
+    assert d["sla"]["escalado"] == "A N2 en la misma jornada"
+
+
+def test_un_grupo_no_sube_la_severidad_por_encima_de_sus_alertas():
+    from src.policy import decision_de_grupo
+
+    assert decision_de_grupo(["low", "low"], [], {"UC-A"})["severidad"] == "low"

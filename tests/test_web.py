@@ -41,6 +41,7 @@ def cliente(tmp_path, monkeypatch):
     monkeypatch.setattr(api, "RUTA_MUESTRA", muestra)
     monkeypatch.setattr(api, "CARPETAS_RESULTADOS", [tmp_path / "web", tmp_path / "demo"])
     monkeypatch.setattr(api, "_indice_cache", {})
+    monkeypatch.setattr(api, "_completas_cache", {})
     monkeypatch.setattr(api, "_resultados", {})
     monkeypatch.setattr(api, "_disco_leido", False)
 
@@ -200,3 +201,22 @@ def test_sin_clave_o_sin_modelo_el_estado_lo_dice(cliente, monkeypatch):
 def test_el_nombre_del_fichero_no_puede_salir_de_la_carpeta():
     nombre = api._nombre_seguro("../../etc/passwd")
     assert "/" not in nombre and "\\" not in nombre and not nombre.startswith(".")
+
+
+def test_grupos_junta_en_un_ticket_las_alertas_triadas_del_mismo_ataque(cliente):
+    from tests.test_agrupar import _resultado_de, alerta, host
+
+    a1, a2 = alerta(1, "UC-EML-003", **host("PC1")), alerta(2, "UC-EDR-001", hora=12, **host("PC1"))
+    for a in (a1, a2):
+        r = {**_resultado_de(a), "alerta": a}
+        r["politica"]["veredicto"] = "true_positive"
+        api._guardar(r)
+    grupos = cliente.get("/api/grupos").json()
+    assert len(grupos) == 1
+    assert grupos[0]["alert_ids"] == [a1["alert_id"], a2["alert_id"]]
+    assert grupos[0]["ticket"]["escalation"]["escalate"] is True
+    assert cliente.get("/api/resultados").status_code == 200
+
+
+def test_grupos_vacio_si_no_hay_nada_triado(cliente):
+    assert cliente.get("/api/grupos").json() == []

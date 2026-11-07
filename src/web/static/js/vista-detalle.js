@@ -167,6 +167,21 @@ function politica(r) {
     !(p.avisos || []).length ? kv("Avisos", "Ninguno") : null);
 }
 
+// --- Alertas del mismo ataque --------------------------------------------------------------
+
+function grupoAtaque(id) {
+  const g = estado.grupos.get(id);
+  if (!g) return null;
+  const t = g.ticket;
+  return panel("", "co", "Mismo ataque", `${g.alert_ids.length} alertas · ${g.severidad}`,
+    h("p", { class: "nota" }, t.escalation.reason),
+    h("div", {}, ...g.alert_ids.map((a) => h("a", { class: "m", href: `#/alerta/${encodeURIComponent(a)}`, style: { display: "block", fontSize: "12.5px", padding: "3px 0" } }, a === id ? `${a} · esta` : a))),
+    kv("Reglas", cortar(g.reglas.join(", "), 80)),
+    kv("Las une", cortar(g.entidades.join(" · "), 90)),
+    kv("Ticket único", mono(t.ticket_id)),
+    h("button", { class: "btn sm", type: "button", onClick: () => descargar(`${t.ticket_id}.json`, t) }, "Ticket único JSON"));
+}
+
 // --- Lo que decide la persona --------------------------------------------------------------
 
 function botonMantener(texto, alCompletar, deshabilitado) {
@@ -302,7 +317,7 @@ export function montarDetalle(raiz, id) {
     raiz.replaceChildren(volver(), cabecera(r, meta), pasos(pendiente),
       h("div", { class: "rejilla" },
         h("div", { class: "col-izq" }, consultas(r), base(r), propuestaIA(r)),
-        h("aside", { class: "col-der" }, politica(r), persona(r, recargar))));
+        h("aside", { class: "col-der" }, grupoAtaque(id), politica(r), persona(r, recargar))));
   };
 
   function mostrarSinTriar(meta) {

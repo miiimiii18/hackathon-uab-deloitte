@@ -46,6 +46,8 @@ function actualizarFila(el, f) {
   if (f.error) {
     r.sub.replaceChildren(h("span", { class: "err" }, f.error));
   }
+  const g = estado.grupos.get(f.id);
+  if (g && listo) r.sub.append(" ", h("span", { class: "chip c-med", title: `Mismo ataque: ${g.alert_ids.join(", ")}` }, `Mismo ataque · ${g.alert_ids.length} alertas`));
   [...r.pp.children].forEach((seg, i) => { seg.className = segmentos(f)[i]; });
 
   r.ver.replaceChildren();
@@ -99,7 +101,7 @@ export function montarCola(raiz) {
     h("section", { class: "limites", "aria-label": "Límites" },
       h("span", { class: "chip", style: { color: "var(--tx)" } }, "Lo que no resuelve"),
       h("span", {}, "Acierto del 85 % en 42 casos etiquetados por nosotros"),
-      h("span", {}, "Aún no agrupa alertas de una misma intrusión"),
+      h("span", {}, "Agrupa solo las alertas triadas de la cola, no busca otras en el dataset"),
       h("span", {}, "Desconocido no es limpio: baja la confianza"),
       h("span", {}, "Depende del servidor compartido del DCC"),
       h("button", { class: "btn sm", type: "button", style: { marginLeft: "auto" }, onClick: () => restablecerCola() }, "Restablecer las 10")));
@@ -131,7 +133,8 @@ export function montarCola(raiz) {
     cifras.revisar.textContent = cuenta("revisar");
     cifras.cerrar.textContent = cuenta("cerrar");
     cifras.tiempo.textContent = estado.triando || estado.segundos ? minutos(estado.segundos) : "—";
-    subtitulo.textContent = `${listas.length} de ${lista.length} triadas · ${estado.servidor?.paralelo ?? 5} a la vez${estado.demo ? " · modo demo" : ""}`;
+    const nGrupos = new Set([...estado.grupos.values()].map((x) => x.grupo_id)).size;
+    subtitulo.textContent = `${listas.length} de ${lista.length} triadas · ${estado.servidor?.paralelo ?? 5} a la vez${nGrupos ? ` · ${nGrupos} ataque${nGrupos === 1 ? "" : "s"} agrupado${nGrupos === 1 ? "" : "s"}` : ""}${estado.demo ? " · modo demo" : ""}`;
     btnTriar.textContent = estado.triando ? "Triando…" : `Triar las ${lista.length}`;
     btnTriar.disabled = estado.triando || !lista.length;
   }

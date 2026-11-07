@@ -31,6 +31,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from src import llm
+from src.agrupar import agrupar_resultados
 from src.contencion import ErrorContencion, ejecutar_accion, registrar_en_ticket
 from src.soc_client import SOC_API_URL, ErrorSOC, SocClient
 from src.triaje import MAX_PARALELO, PARALELO, cargar_alerta, triar
@@ -60,6 +61,7 @@ app = FastAPI(title="TEMIPO · Triaje N1", docs_url="/api/docs", openapi_url="/a
 _cerrojo = threading.RLock()
 _modelos: dict[str, Any] = {"hasta": 0.0, "ids": None}
 _indice_cache: dict[Path, dict[str, dict[str, Any]]] = {}
+_completas_cache: dict[Path, dict[str, dict[str, Any]]] = {}
 _resultados: dict[str, dict[str, Any]] = {}
 _disco_leido = False
 
@@ -276,6 +278,30 @@ def listar_resultados() -> list[dict[str, Any]]:
 @app.get("/api/resultados/{alert_id}")
 def ver_resultado(alert_id: str) -> dict[str, Any]:
     return _obtener(alert_id)
+
+
+def _alertas_completas() -> dict[str, dict[str, Any]]:
+    """Las alertas del dataset completas (la agrupación necesita entidades y evidencia)."""
+    ruta = RUTA_ALERTAS if RUTA_ALERTAS.exists() else RUTA_MUESTRA
+    with _cerrojo:
+        if ruta not in _completas_cache:
+            alertas: dict[str, dict[str, Any]] = {}
+            if ruta.exists():
+                with ruta.open(encoding="utf-8") as f:
+                    alertas = {a["alert_id"]: a for a in (json.loads(linea) for linea in f if linea.strip())}
+            _completas_cache[ruta] = alertas
+        return _completas_cache[ruta]
+
+
+@app.get("/api/grupos")
+def grupos() -> list[dict[str, Any]]:
+    """Alertas triadas que forman parte de la misma intrusión, con su ticket único."""
+    _leer_disco()
+    with _cerrojo:
+        resultados = {i: r for i, r in _resultados.items() if "error" not in r}
+    completas = _alertas_completas()
+    alertas = {i: r.get("alerta") or completas[i] for i, r in resultados.items() if r.get("alerta") or i in completas}
+    return agrupar_resultados(resultados, alertas)
 
 
 @app.get("/api/registro")
