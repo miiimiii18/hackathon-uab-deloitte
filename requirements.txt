@@ -5,7 +5,6 @@ matplotlib
 jupyter
 python-dotenv
 requests
-anthropic>=2.6
 pydantic>=2
 ruff
 pytest

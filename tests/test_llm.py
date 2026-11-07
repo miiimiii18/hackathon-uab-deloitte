@@ -1,7 +1,6 @@
-"""Tests de src/llm.py. No llaman a la API: usan un cliente falso."""
+"""Tests de src/llm.py. No necesitan Ollama: usan una función `enviar` falsa."""
 
 import json
-from types import SimpleNamespace
 
 import pytest
 
@@ -37,24 +36,25 @@ ANALISIS_VALIDO = {
 }
 
 
-class ClienteFalso:
-    """Imita anthropic.Anthropic: guarda la petición y devuelve una respuesta fija."""
+class OllamaFalso:
+    """Imita /api/chat de Ollama: devuelve las respuestas indicadas, en orden."""
 
-    def __init__(self, texto: str, stop_reason: str = "end_turn"):
-        self.peticion = None
-        respuesta = SimpleNamespace(
-            stop_reason=stop_reason,
-            stop_details=SimpleNamespace(category="cyber") if stop_reason == "refusal" else None,
-            content=[SimpleNamespace(type="thinking"), SimpleNamespace(type="text", text=texto)],
-            model="claude-opus-5-5",
-            usage=SimpleNamespace(input_tokens=100, output_tokens=50, cache_read_input_tokens=0),
-        )
+    def __init__(self, *contenidos: str, done_reason: str = "stop"):
+        self.contenidos = list(contenidos)
+        self.done_reason = done_reason
+        self.peticiones: list[dict] = []
 
-        def create(**kwargs):
-            self.peticion = kwargs
-            return respuesta
-
-        self.beta = SimpleNamespace(messages=SimpleNamespace(create=create))
+    def __call__(self, peticion: dict) -> dict:
+        # Se guarda una copia porque la lista de mensajes crece entre intentos.
+        self.peticiones.append(json.loads(json.dumps(peticion)))
+        return {
+            "model": peticion["model"],
+            "message": {"role": "assistant", "content": self.contenidos.pop(0)},
+            "done": True,
+            "done_reason": self.done_reason,
+            "prompt_eval_count": 100,
+            "eval_count": 50,
+        }
 
 
 def test_esquema_tiene_todos_los_campos_y_es_estricto():
@@ -71,29 +71,43 @@ def test_datos_no_fiables_no_pueden_cerrar_la_etiqueta():
 
 
 def test_analisis_valido_y_peticion_bien_formada():
-    cliente = ClienteFalso(json.dumps(ANALISIS_VALIDO))
-    resultado = analizar_alerta({"alert_id": "ALR-1"}, {"activo": {}}, cliente=cliente)
+    ollama = OllamaFalso(json.dumps(ANALISIS_VALIDO))
+    resultado = analizar_alerta({"alert_id": "ALR-1"}, {"activo": {}}, enviar=ollama)
 
     assert resultado.analisis.verdict == "false_positive"
-    p = cliente.peticion
-    assert p["system"][0]["cache_control"] == {"type": "ephemeral"}
-    assert "<datos_no_fiables>" in p["messages"][0]["content"]
-    assert p["output_config"]["format"]["type"] == "json_schema"
-    assert p["fallbacks"] == "default"
+    assert resultado.intentos == 1
+    p = ollama.peticiones[0]
+    assert p["stream"] is False
+    assert p["format"] == ESQUEMA_RESPUESTA
+    assert p["options"]["temperature"] == 0
+    assert p["messages"][0]["role"] == "system"
+    assert "<datos_no_fiables>" in p["messages"][1]["content"]
 
 
-def test_haiku_no_usa_fallbacks():
-    cliente = ClienteFalso(json.dumps(ANALISIS_VALIDO))
-    analizar_alerta({"alert_id": "ALR-1"}, cliente=cliente, modelo="claude-haiku-5-5")
-    assert "fallbacks" not in cliente.peticion
+def test_json_dentro_de_marcas_de_codigo_se_acepta():
+    ollama = OllamaFalso("```json\n" + json.dumps(ANALISIS_VALIDO) + "\n```")
+    assert analizar_alerta({"alert_id": "ALR-1"}, enviar=ollama).analisis.confidence == 0.9
 
 
-def test_confianza_fuera_de_rango_se_rechaza():
-    malo = {**ANALISIS_VALIDO, "confidence": 1.5}
+def test_respuesta_mal_formada_se_corrige_en_el_segundo_intento():
+    malo = json.dumps({**ANALISIS_VALIDO, "confidence": 1.5})
+    ollama = OllamaFalso(malo, json.dumps(ANALISIS_VALIDO))
+    resultado = analizar_alerta({"alert_id": "ALR-1"}, enviar=ollama)
+
+    assert resultado.intentos == 2
+    assert resultado.tokens_entrada == 200
+    # En el segundo intento el modelo ve su respuesta y el error.
+    ultimo = ollama.peticiones[1]["messages"][-1]
+    assert ultimo["role"] == "user" and "no cumple el formato" in ultimo["content"]
+
+
+def test_respuesta_mal_formada_dos_veces_da_error():
+    malo = json.dumps({**ANALISIS_VALIDO, "verdict": "quizas"})
     with pytest.raises(ErrorLLM, match="formato"):
-        analizar_alerta({"alert_id": "ALR-1"}, cliente=ClienteFalso(json.dumps(malo)))
+        analizar_alerta({"alert_id": "ALR-1"}, enviar=OllamaFalso(malo, malo))
 
 
-def test_rechazo_del_modelo_da_error_claro():
-    with pytest.raises(ErrorLLM, match="rechazó"):
-        analizar_alerta({"alert_id": "ALR-1"}, cliente=ClienteFalso("", stop_reason="refusal"))
+def test_respuesta_cortada_da_error_claro():
+    ollama = OllamaFalso("{", done_reason="length")
+    with pytest.raises(ErrorLLM, match="LLM_NUM_CTX"):
+        analizar_alerta({"alert_id": "ALR-1"}, enviar=ollama)
