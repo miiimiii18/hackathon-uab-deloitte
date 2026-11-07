@@ -8,11 +8,15 @@ Contexto e instrucciones para Claude Code en este repositorio.
 - **Evento:** UAB The Hack, el hackathon de la Universitat Autònoma de Barcelona (2026).
 - **Reto:** Deloitte, que combina ciberseguridad e inteligencia artificial: un sistema con IA para el triaje de alertas de un SOC (detalle en «Briefing del reto»).
 - **Quiénes somos:** estudiantes del grado de IA.
+- **Duración:** 24 horas. La defensa es el domingo.
 - **Prioridad:** el tiempo es limitado. Preferimos soluciones que funcionen y se puedan enseñar en una demo antes que código perfecto.
+- **Plan de trabajo:** [`docs/plan-de-trabajo.md`](docs/plan-de-trabajo.md) es la hoja de ruta del equipo (fases, reparto, arquitectura y decisiones abiertas). Antes de proponer o empezar una tarea, mira en qué fase estamos.
 
 ## Briefing del reto
 
-Fuente oficial: repo de Deloitte [`dttdfr/DTT-UAB-The-Hack`](https://github.com/dttdfr/DTT-UAB-The-Hack). Ante cualquier duda, manda lo que diga ese repo: su `README.md`, `01_contexto/politica_soc.md` y los runbooks.
+Fuente oficial: repo de Deloitte [`dttdfr/DTT-UAB-The-Hack`](https://github.com/dttdfr/DTT-UAB-The-Hack). Ante cualquier duda, manda lo que diga ese repo: su `README.md`, la presentación `Reto IA en ciberseguridad.pptx`, `01_contexto/politica_soc.md` y los runbooks.
+
+Dudas a Deloitte: `ESTTCyberDudasHackaton@deloitte.com` (atienden durante las 24 h).
 
 ### Enunciado
 
@@ -32,7 +36,9 @@ Construir un **sistema con IA que haga el triaje de nivel 1 (N1) del SOC** de Ta
 ### Entregables y defensa
 
 - **Demo visual obligatoria**: una interfaz, un panel o un flujo visual (no basta con la consola) que enseñe la cola de alertas, qué consulta el sistema, en qué se basa para decidir, qué propone y dónde interviene la persona.
-- **Alertas comunes**: el último día Deloitte dará un pequeño conjunto de alertas, igual para todos los equipos, y habrá que enseñar en directo qué hace nuestro sistema con ellas. El sistema tiene que poder procesar alertas nuevas, no solo las del dataset.
+- **10 alertas comunes en directo**: el domingo Deloitte dará las mismas 10 alertas a todos los equipos y habrá que triarlas en directo. No han dicho si saldrán del dataset o serán nuevas, así que el sistema tiene que aceptar una alerta que no haya visto nunca (por ejemplo, pegando su JSON).
+- **Hasta qué nivel hemos llegado y cómo lo hemos construido.**
+- **Una página para el comité de dirección de Tarvia**: resumen no técnico de qué hace el sistema, qué aporta y qué no resuelve. Sale solo en la presentación, no en el README.
 - Formatos de salida de referencia (opcionales, pero conviene usarlos): `01_contexto/ticket_salida.schema.json` para el triaje y `01_contexto/informe_incidente.schema.json` para la investigación.
 
 ### Criterios de evaluación
@@ -44,18 +50,23 @@ Construir un **sistema con IA que haga el triaje de nivel 1 (N1) del SOC** de Ta
 
 ### Datos
 
-Datos sintéticos de cuatro semanas del SOC de Tarvia (del 2026-10-04 al 2026-11-01, en UTC; en España es UTC+2). Son 11.061 alertas y 814.471 eventos de log de 16 fuentes, unos 270 MB.
+Datos sintéticos de cuatro semanas del SOC de Tarvia (del 2026-10-04 al 2026-11-01, en UTC; en España es UTC+2). Son 11.061 alertas de 44 casos de uso y 814.471 eventos de log de 18 fuentes, unos 270 MB. Las alertas **no traen la respuesta correcta**: para medir si acertamos hay que etiquetar a mano un conjunto propio (fase 7 del plan).
 
 | Carpeta | Contenido |
 |---|---|
 | `01_contexto/` | Ficha de la empresa, política del SOC, catálogo de casos de uso, runbooks RB-01 a RB-10 y esquemas de salida |
 | `02_inventario/` | Activos (CMDB), usuarios, servicios de negocio, zonas de red, vulnerabilidades, eventos de RRHH y calendario de cambios |
 | `03_alertas/` | `alertas.jsonl` (todas) y `alertas_muestra_desarrollo.jsonl` (150 variadas: **empezar por aquí**) |
-| `04_logs/` | Logs crudos: proxy, dns, edr, idp, waf, email, ecom, firewall, vpn, ai_gateway, cloudtrail, sql_audit, dlp, ad, cicd |
+| `04_logs/` | 18 logs crudos: `proxy`, `dns`, `edr_events`, `idp_signins`, `idp_audit`, `waf`, `email`, `email_clicks`, `ecom_auth`, `ecom_account`, `firewall`, `vpn`, `ai_gateway`, `cloudtrail`, `sql_audit`, `dlp`, `ad_events`, `cicd_builds`. Casi todos son JSONL; `dns`, `proxy` y `firewall` son CSV |
 | `05_inteligencia/` | TIP interno, GeoIP/ASN e informes de sandbox |
 | `06_herramientas/` | `mock_soc_api.py`, la API simulada del SOC |
 
-**Dónde ponerlos:** clonad el repo de Deloitte dentro de `data/` (por ejemplo, `data/tarvia/`). `data/` está ignorada por git, así que el dataset nunca se sube a nuestro repo.
+**Dónde ponerlos:** cada persona clona el repo de Deloitte en `data/tarvia/`. `data/` está ignorada por git, así que el dataset nunca se sube a nuestro repo. Desde la raíz del proyecto:
+
+```bash
+git clone https://github.com/dttdfr/DTT-UAB-The-Hack.git data/tarvia   # una sola vez
+git -C data/tarvia pull                                                  # para actualizarlo
+```
 
 ### API simulada del SOC
 
@@ -71,6 +82,11 @@ Endpoints principales:
 - **Contención**: `POST /approvals` simula la aprobación humana y devuelve un `approval_token`. `POST /containment/{acción}` ejecuta la acción y exige ese token, salvo `block_ioc` y `purge_email`.
 
 Nada sale del portátil: la API solo escribe en `containment_log.jsonl`.
+
+Cosas que hay que saber de la API (comprobado en su código):
+- **`/logs/{fuente}?q=` busca por subcadena** en todo el evento: `q=10.10.1.1` también devuelve `10.10.1.185`. Hay que filtrar en nuestro código por coincidencia exacta del campo.
+- **Cada consulta a `/logs` recorre el log entero**, así que en `proxy` y `dns` (~180.000 eventos cada uno) es lenta. Si molesta, indexar los logs en local (pandas, DuckDB o SQLite).
+- **Un 404 de `/assets` o `/users` es un dato**, no un error: equipo no gestionado o identidad desconocida. El triaje debe seguir y bajar la confianza.
 
 ### Reglas del juego (resumen de `politica_soc.md`)
 
@@ -93,6 +109,17 @@ Nada sale del portátil: la API solo escribe en `containment_log.jsonl`.
 - Algunos incidentes solo se entienden juntando alertas de días o semanas distintas.
 - **El atacante escribe parte de los datos** (asuntos de correo, descripciones de servicios, prompts a Vela). El sistema no debe obedecerlos: hay que tratarlos siempre como datos, nunca como instrucciones (prompt injection).
 
+## Principios de diseño
+
+Acordados en el plan de trabajo (sección 4). Cualquier código nuevo debe respetarlos:
+
+- **Código para lo determinista, LLM para razonar y redactar.** La severidad (matriz y ajustes ±1), el escalado obligatorio y los permisos de contención van en código (`src/policy.py`), con tests, y nunca en el prompt. El LLM propone el veredicto, la confianza y la argumentación.
+- **El LLM no ejecuta acciones.** Las acciones se construyen en código a partir del veredicto y las aprueba una persona. Nunca se actúa sobre la red OT.
+- **Datos no fiables delimitados.** Todo lo que viene de alertas y logs se pasa al LLM marcado como datos, y la salida del LLM es JSON validado contra el schema.
+- **Trazabilidad.** Cada consulta que hace el sistema queda registrada para enseñarla en la UI («qué consulta y en qué se basa»).
+- **Tres estados de enriquecimiento:** `malicious`, `clean` y `unknown`. Un dato ausente o desconocido nunca cuenta como limpio.
+- **No cargar logs enteros en el contexto del LLM**, solo los eventos filtrados por entidad y ventana de tiempo (±24 h).
+
 ## Repositorio
 
 - GitHub: `miiimiii18/hackathon-uab-deloitte` (privado). Trabajamos varias personas a la vez.
@@ -105,7 +132,7 @@ Nada sale del portátil: la API solo escribe en `containment_log.jsonl`.
 ├── notebooks/    # exploración y prototipos
 ├── data/         # datos locales, ignorados por git (excepto data/README.md)
 ├── writeups/     # un .md por misión resuelta, a partir de writeups/_plantilla.md
-├── docs/         # pitch (docs/pitch.md) y documentación
+├── docs/         # plan de trabajo, pitch y documentación
 ├── scripts/      # utilidades (setup.sh)
 └── tests/        # tests con pytest
 ```
@@ -167,8 +194,10 @@ Las 2 últimas horas antes de la entrega `main` queda congelada: solo se aceptan
 
 ## Documentar sobre la marcha
 
-- Cada misión resuelta tiene su writeup en `writeups/NN-nombre-mision.md`, creado a partir de `writeups/_plantilla.md`.
+- Cada nivel o parte resuelta tiene su writeup en `writeups/NN-nombre.md`, creado a partir de `writeups/_plantilla.md`.
 - El guion del pitch está en `docs/pitch.md`.
+- Según el plan, también hay que preparar `docs/one-pager-comite.md` (la página para el comité de dirección) y `docs/limitaciones.md` (lo que la solución no resuelve).
+- Al terminar una tarea del plan, marca su casilla en `docs/plan-de-trabajo.md`.
 
 ## Cómo comunicarte con nosotros
 
