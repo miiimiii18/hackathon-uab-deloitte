@@ -3,6 +3,7 @@ import { h, logo } from "./dom.js";
 import { estado, iniciar, ponerDemo, suscribir } from "./estado.js";
 import { montarCola } from "./vista-cola.js";
 import { montarDetalle } from "./vista-detalle.js";
+import { montarRegistro } from "./vista-registro.js";
 import { aviso } from "./util.js";
 
 const cabecera = document.getElementById("cabecera");
@@ -35,6 +36,7 @@ function pintarCabecera() {
   cabecera.replaceChildren(
     h("a", { class: "marca", href: "#/", "aria-label": "TEMIPO, cola de alertas" }, logo(), h("b", {}, "TEMIPO"), h("span", {}, "Triaje N1 · Tarvia")),
     h("div", { class: "estado" },
+      h("a", { class: "chip", href: "#/registro", title: "Acciones de contención ejecutadas" }, "Registro de contención"),
       h("span", { class: "chip", title: s?.soc_url }, luz(s?.soc), "API del SOC"),
       h("span", { class: "chip", title: s?.llm_aviso || (s ? `Modelo ${s.modelo}` : "") }, luz(s?.llm), s?.llm ? `LLM ${s.modelo}` : "LLM no disponible"),
       h("label", { class: "chip", title: "Reproduce resultados guardados, sin tocar la API ni el LLM" },
@@ -50,7 +52,9 @@ async function refrescarServidor() {
 function enrutar() {
   desmontar();
   const m = location.hash.match(/^#\/alerta\/(.+)$/);
-  desmontar = m ? montarDetalle(vista, decodeURIComponent(m[1])) : montarCola(vista);
+  if (m) desmontar = montarDetalle(vista, decodeURIComponent(m[1]));
+  else if (location.hash === "#/registro") desmontar = montarRegistro(vista);
+  else desmontar = montarCola(vista);
   window.scrollTo(0, 0);
 }
 

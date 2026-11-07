@@ -1,7 +1,25 @@
 import { h } from "./dom.js";
 import { abrirPanel } from "./panel.js";
 import { estado, restablecerCola, suscribir, triarFilas } from "./estado.js";
-import { DECISION, ETAPA, minutos } from "./util.js";
+import { DECISION, ETAPA, minutos, SEVERIDADES } from "./util.js";
+
+const VEREDICTOS = ["true_positive", "benign_true_positive", "false_positive", "needs_more_info"];
+const ESTADOS = [["escalar", "Escalar a N2"], ["revisar", "Revisar"], ["cerrar", "Cerrar"], ["pendiente", "Sin triar"], ["error", "Con error"]];
+// Se guardan fuera de la vista para que sigan al volver desde el detalle.
+const filtros = { regla: "", severidad: "", veredicto: "", estado: "" };
+
+function pasaFiltros(f) {
+  const listo = f.etapa === "listo";
+  const r = f.resumen;
+  if (filtros.regla && f.meta?.rule_id !== filtros.regla) return false;
+  if (filtros.severidad && !(listo && r.severidad === filtros.severidad)) return false;
+  if (filtros.veredicto && !(listo && r.veredicto === filtros.veredicto)) return false;
+  if (filtros.estado) {
+    const actual = listo ? r.decision : f.etapa === "error" ? "error" : "pendiente";
+    if (actual !== filtros.estado) return false;
+  }
+  return true;
+}
 
 const SEGMENTOS = {
   pendiente: ["o", "o", "o", "o"],
@@ -46,6 +64,8 @@ function actualizarFila(el, f) {
   if (f.error) {
     r.sub.replaceChildren(h("span", { class: "err" }, f.error));
   }
+  const g = estado.grupos.get(f.id);
+  if (g && listo) r.sub.append(" ", h("span", { class: "chip c-med", title: `Mismo ataque: ${g.alert_ids.join(", ")}` }, `Mismo ataque · ${g.alert_ids.length} alertas`));
   [...r.pp.children].forEach((seg, i) => { seg.className = segmentos(f)[i]; });
 
   r.ver.replaceChildren();
@@ -60,6 +80,7 @@ function actualizarFila(el, f) {
     r.dec.append(h("span", { class: `tg ${res.decision}` }, DECISION[res.decision] ?? "—"));
     r.conf.textContent = res.confianza != null ? Number(res.confianza).toFixed(2) : "";
     r.seg.textContent = res.segundos != null ? `${Math.round(res.segundos)} s` : "";
+    if (res.correccion) r.ver.append(h("span", { class: "m", style: { fontSize: "11px", color: "var(--lime)" }, title: `${res.correccion.por}: ${res.correccion.motivo}` }, `Persona: ${res.correccion.veredicto}`));
   } else if (enCurso) {
     r.ver.append(h("span", { class: "m", style: { fontSize: "12px", color: "var(--mu)" } }, `${ETAPA[f.etapa].toLowerCase()}…`));
     r.sev.append(h("span", { class: "skel", style: { width: "70px" } }));
@@ -78,6 +99,23 @@ export function montarCola(raiz) {
   const cifra = (clave, rotulo, color) =>
     h("div", { class: "cifra" }, cifras[clave] = h("b", { style: color ? { color } : {} }, "0"), h("span", {}, rotulo));
   let subtitulo, btnTriar, cuerpo;
+  const selectores = {};
+
+  function selector(clave, rotulo, opciones) {
+    const caja = selectores[clave] = h("select", { "aria-label": rotulo, onChange: () => { filtros[clave] = caja.value; pintar(); } },
+      h("option", { value: "" }, `${rotulo}: todas`), ...opciones.map(([valor, texto]) => h("option", { value: valor }, texto)));
+    caja.value = filtros[clave];
+    return caja;
+  }
+  let reglasPintadas = "";
+  function opcionesDeRegla(lista) {
+    const reglas = [...new Set(lista.map((f) => f.meta?.rule_id).filter(Boolean))].sort();
+    if (reglas.join() === reglasPintadas) return;
+    reglasPintadas = reglas.join();
+    selectores.regla.replaceChildren(h("option", { value: "" }, "Regla: todas"), ...reglas.map((x) => h("option", { value: x }, x)));
+    selectores.regla.value = reglas.includes(filtros.regla) ? filtros.regla : "";
+    filtros.regla = selectores.regla.value;
+  }
 
   raiz.replaceChildren(
     h("section", { class: "cabecera entra" },
@@ -87,6 +125,12 @@ export function montarCola(raiz) {
         cifra("cerrar", "cerradas"), cifra("tiempo", "tiempo"),
         h("button", { class: "btn", type: "button", onClick: () => abrirPanel() }, "Cargar alertas"),
         btnTriar = h("button", { class: "btn go", type: "button" }))),
+    h("section", { class: "filtros entra", "aria-label": "Filtros de la cola" },
+      selector("regla", "Regla", []),
+      selector("severidad", "Severidad", SEVERIDADES.slice().reverse().map((x) => [x, x])),
+      selector("veredicto", "Veredicto", VEREDICTOS.map((x) => [x, x])),
+      selector("estado", "Estado", ESTADOS),
+      h("button", { class: "btn sm", type: "button", onClick: () => { Object.keys(filtros).forEach((k) => { filtros[k] = ""; selectores[k].value = ""; }); pintar(); } }, "Quitar filtros")),
     h("section", { class: "card scroll entra", role: "table", "aria-label": "Cola de alertas", style: { animationDelay: ".1s" } },
       h("div", { class: "fila hd", role: "row" },
         h("span"), h("span", { role: "columnheader" }, "Alerta"), h("span", { role: "columnheader" }, "Qué ha saltado"),
@@ -99,7 +143,7 @@ export function montarCola(raiz) {
     h("section", { class: "limites", "aria-label": "Límites" },
       h("span", { class: "chip", style: { color: "var(--tx)" } }, "Lo que no resuelve"),
       h("span", {}, "Acierto del 85 % en 42 casos etiquetados por nosotros"),
-      h("span", {}, "Aún no agrupa alertas de una misma intrusión"),
+      h("span", {}, "Agrupa solo las alertas triadas de la cola, no busca otras en el dataset"),
       h("span", {}, "Desconocido no es limpio: baja la confianza"),
       h("span", {}, "Depende del servidor compartido del DCC"),
       h("button", { class: "btn sm", type: "button", style: { marginLeft: "auto" }, onClick: () => restablecerCola() }, "Restablecer las 10")));
@@ -114,16 +158,20 @@ export function montarCola(raiz) {
     for (const [id, el] of filas) {
       if (!estado.filas.has(id)) { el.remove(); filas.delete(id); }
     }
+    opcionesDeRegla(lista);
+    const visibles = lista.filter(pasaFiltros);
+    for (const f of lista) if (!visibles.includes(f)) filas.get(f.id).remove();
     cuerpo.querySelectorAll(".vacio").forEach((e) => e.remove());
     // Primero lo que necesita a una persona; después lo cerrado; lo pendiente al final.
     const peso = (f) => (f.etapa === "listo" ? ({ escalar: 0, revisar: 1, cerrar: 3 }[f.resumen.decision] ?? 3) : f.etapa === "error" ? 2 : 4);
-    const orden = lista.map((f, i) => [f, i]).sort((a, b) => peso(a[0]) - peso(b[0]) || a[1] - b[1]).map(([f]) => f);
+    const orden = visibles.map((f, i) => [f, i]).sort((a, b) => peso(a[0]) - peso(b[0]) || a[1] - b[1]).map(([f]) => f);
     orden.forEach((f, i) => {
       const el = filas.get(f.id);
       actualizarFila(el, f);
       if (cuerpo.children[i] !== el) cuerpo.insertBefore(el, cuerpo.children[i] ?? null);
     });
     if (!lista.length) cuerpo.replaceChildren(h("div", { class: "vacio" }, "No hay alertas en la cola. Pulsa «Cargar alertas»."));
+    else if (!visibles.length) cuerpo.replaceChildren(h("div", { class: "vacio" }, "Ninguna alerta cumple los filtros."));
 
     const listas = lista.filter((f) => f.etapa === "listo");
     const cuenta = (d) => listas.filter((f) => f.resumen.decision === d).length;
@@ -131,7 +179,8 @@ export function montarCola(raiz) {
     cifras.revisar.textContent = cuenta("revisar");
     cifras.cerrar.textContent = cuenta("cerrar");
     cifras.tiempo.textContent = estado.triando || estado.segundos ? minutos(estado.segundos) : "—";
-    subtitulo.textContent = `${listas.length} de ${lista.length} triadas · ${estado.servidor?.paralelo ?? 5} a la vez${estado.demo ? " · modo demo" : ""}`;
+    const nGrupos = new Set([...estado.grupos.values()].map((x) => x.grupo_id)).size;
+    subtitulo.textContent = `${visibles.length === lista.length ? "" : `${visibles.length} de ${lista.length} a la vista · `}${listas.length} de ${lista.length} triadas · ${estado.servidor?.paralelo ?? 5} a la vez${nGrupos ? ` · ${nGrupos} ataque${nGrupos === 1 ? "" : "s"} agrupado${nGrupos === 1 ? "" : "s"}` : ""}${estado.demo ? " · modo demo" : ""}`;
     btnTriar.textContent = estado.triando ? "Triando…" : `Triar las ${lista.length}`;
     btnTriar.disabled = estado.triando || !lista.length;
   }

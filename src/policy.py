@@ -429,3 +429,19 @@ def aplicar_politica(alerta: dict[str, Any], evidencia: dict[str, Any], analisis
         acciones=acciones,
         avisos=avisos,
     )
+
+
+# --- Grupos de alertas (nivel 2) ----------------------------------------------------------
+
+
+def decision_de_grupo(severidades: list[str], motivos_miembros: list[str], reglas: set[str]) -> dict[str, Any]:
+    """Decide un grupo de alertas relacionadas que van en un único ticket.
+
+    Política (sección 5): varias alertas que juntas forman una cadena de ataque se escalan.
+    La severidad del grupo es la mayor de sus alertas: cada una ya llevó su ajuste ±1 y
+    sumar otro rompería el máximo de ±1 en total.
+    """
+    final = max(severidades, key=SEVERIDADES.index)
+    motivos = [f"{len(severidades)} alertas relacionadas ({len(reglas)} regla{'s' if len(reglas) != 1 else ''}) forman una cadena de ataque"]
+    motivos += [m for m in dict.fromkeys(motivos_miembros) if m not in motivos]
+    return {"severidad": final, "decision": "escalar", "motivos_escalado": motivos, "sla": SLA[final]}

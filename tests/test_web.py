@@ -41,6 +41,7 @@ def cliente(tmp_path, monkeypatch):
     monkeypatch.setattr(api, "RUTA_MUESTRA", muestra)
     monkeypatch.setattr(api, "CARPETAS_RESULTADOS", [tmp_path / "web", tmp_path / "demo"])
     monkeypatch.setattr(api, "_indice_cache", {})
+    monkeypatch.setattr(api, "_completas_cache", {})
     monkeypatch.setattr(api, "_resultados", {})
     monkeypatch.setattr(api, "_disco_leido", False)
 
@@ -200,3 +201,46 @@ def test_sin_clave_o_sin_modelo_el_estado_lo_dice(cliente, monkeypatch):
 def test_el_nombre_del_fichero_no_puede_salir_de_la_carpeta():
     nombre = api._nombre_seguro("../../etc/passwd")
     assert "/" not in nombre and "\\" not in nombre and not nombre.startswith(".")
+
+
+def test_grupos_junta_en_un_ticket_las_alertas_triadas_del_mismo_ataque(cliente):
+    from tests.test_agrupar import _resultado_de, alerta, host
+
+    a1, a2 = alerta(1, "UC-EML-003", **host("PC1")), alerta(2, "UC-EDR-001", hora=12, **host("PC1"))
+    for a in (a1, a2):
+        r = {**_resultado_de(a), "alerta": a}
+        r["politica"]["veredicto"] = "true_positive"
+        api._guardar(r)
+    grupos = cliente.get("/api/grupos").json()
+    assert len(grupos) == 1
+    assert grupos[0]["alert_ids"] == [a1["alert_id"], a2["alert_id"]]
+    assert grupos[0]["ticket"]["escalation"]["escalate"] is True
+    assert cliente.get("/api/resultados").status_code == 200
+
+
+def test_grupos_vacio_si_no_hay_nada_triado(cliente):
+    assert cliente.get("/api/grupos").json() == []
+
+
+def test_la_persona_corrige_el_veredicto_y_queda_anotado_sin_tocar_la_politica(cliente):
+    cliente.post("/api/triaje", json={"alertas": ["ALR-1"]})
+    url = "/api/resultados/ALR-1/decisiones"
+    base = {"tipo": "corregir", "por": "N2 - Ana", "motivo": "Es la newsletter de siempre", "veredicto": "false_positive", "severidad": "informational"}
+    assert cliente.post(url, json={**base, "motivo": ""}).status_code == 400
+    assert cliente.post(url, json={**base, "por": " "}).status_code == 400
+    assert cliente.post(url, json={**base, "veredicto": "inventado"}).status_code == 422
+    assert cliente.post(url, json={**base, "severidad": "gravisima"}).status_code == 422
+    assert cliente.post(url, json=base).status_code == 200
+    resultado = cliente.get("/api/resultados/ALR-1").json()
+    assert resultado["politica"]["veredicto"] == "true_positive"  # lo que decidió el código no cambia
+    assert resultado["humano"][0]["veredicto"] == "false_positive" and resultado["humano"][0]["por"] == "N2 - Ana"
+    resumen = next(x for x in cliente.get("/api/resultados").json() if x["alert_id"] == "ALR-1")
+    assert resumen["correccion"]["veredicto"] == "false_positive"
+
+
+def test_la_alerta_original_sale_del_resultado_o_del_dataset(cliente):
+    assert cliente.get("/api/alertas/ALR-404/original").status_code == 404
+    guardada = {"alert_id": "ALR-9", "rule_id": "UC-X", "entities": {"hosts": []}}
+    api._guardar({**_resultado(guardada), "alerta": guardada})
+    assert cliente.get("/api/alertas/ALR-9/original").json() == guardada
+    assert cliente.get("/api/alertas/ALR-1/original").json()["rule_id"] == "UC-WEB-001"  # está en el dataset
