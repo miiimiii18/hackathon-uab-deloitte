@@ -10,5 +10,7 @@ jsonschema
 # Para arrancar la API simulada de Deloitte (data/tarvia/06_herramientas)
 fastapi
 uvicorn
+# Para los tests de la interfaz web (TestClient de FastAPI)
+httpx
 ruff
 pytest
