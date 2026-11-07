@@ -6,5 +6,8 @@ jupyter
 python-dotenv
 requests
 pydantic>=2
+# Para arrancar la API simulada de Deloitte (data/tarvia/06_herramientas)
+fastapi
+uvicorn
 ruff
 pytest
