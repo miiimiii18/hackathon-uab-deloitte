@@ -28,7 +28,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-SOC_API_URL = os.getenv("SOC_API_URL", "http://localhost:8000").rstrip("/")
+# 127.0.0.1 y no «localhost»: en Windows, «localhost» prueba primero IPv6 (::1), la
+# API solo escucha en IPv4 y cada petición pierde ~2 s esperando el fallo.
+SOC_API_URL = os.getenv("SOC_API_URL", "http://127.0.0.1:8000").rstrip("/")
 TIMEOUT = float(os.getenv("SOC_API_TIMEOUT", "120"))
 
 # Prefijo del event_id → fichero de log donde está ese evento.

@@ -38,7 +38,8 @@ load_dotenv()
 
 # Dirección de Ollama. Si el modelo corre en el portátil de otra persona de la misma
 # red, poned aquí su IP (p. ej., http://192.168.1.50:11434).
-OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434").rstrip("/")
+# 127.0.0.1 y no «localhost»: en Windows, «localhost» puede añadir ~2 s a cada petición.
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/")
 MODELO_POR_DEFECTO = os.getenv("LLM_MODEL", "gpt-oss:20b")
 # Tamaño del contexto en tokens. Tiene que caber el prompt fijo (~4.000 tokens), la
 # alerta con su evidencia y la respuesta. Más grande = más memoria de la gráfica.
