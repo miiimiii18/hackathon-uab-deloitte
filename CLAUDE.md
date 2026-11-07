@@ -11,6 +11,8 @@ Contexto e instrucciones para Claude Code en este repositorio.
 - **Duración:** 24 horas. La defensa es el domingo.
 - **Prioridad:** el tiempo es limitado. Preferimos soluciones que funcionen y se puedan enseñar en una demo antes que código perfecto.
 - **Plan de trabajo:** [`docs/plan-de-trabajo.md`](docs/plan-de-trabajo.md) es la hoja de ruta del equipo (fases, reparto, arquitectura y decisiones abiertas). Antes de proponer o empezar una tarea, mira en qué fase estamos.
+- **Organización:** no hay áreas fijas, todos hacemos de todo. Para no pisarnos, antes de empezar una tarea avisad al equipo (o cread un issue con la plantilla «Tarea») y trabajad cada uno en su propia rama.
+- **Demo:** la interfaz visual se hace con Streamlit.
 
 ## Briefing del reto
 
