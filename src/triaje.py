@@ -29,6 +29,7 @@ from src.evidencia import reunir_evidencia
 from src.llm import ErrorLLM, analizar_alerta
 from src.policy import aplicar_politica
 from src.soc_client import ErrorSOC, SocClient
+from src.ticket import construir_ticket, validar_ticket
 
 # Alertas a la vez. El servidor del DCC lo comparten todos los equipos: con 4–6 se
 # gana casi todo sin saturarlo. Se puede cambiar con TRIAJE_PARALELO en .env.
@@ -68,6 +69,11 @@ def triar(
         resultado["llm"] = llm.model_dump()
         # La IA propone; la política (código) decide severidad, escalado y permisos.
         resultado["politica"] = aplicar_politica(alerta, evidencia, llm.analisis).model_dump()
+        # Ticket en el formato de Deloitte, validado contra su esquema.
+        ticket = construir_ticket(alerta, evidencia, resultado["llm"], resultado["politica"],
+                                  segundos=time.perf_counter() - inicio)
+        resultado["ticket"] = ticket
+        resultado["ticket_errores"] = validar_ticket(ticket)  # vacío = cumple el esquema
     return resultado
 
 
