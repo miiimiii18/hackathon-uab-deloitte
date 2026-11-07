@@ -143,7 +143,7 @@ Orden de prioridad. Las fases 2 y 3 (motor y UI) pueden ir **en paralelo** entre
 - [x] Búsqueda exacta por entidad y ventana temporal ±24 h (filtrar tras `q=`).
 - [x] Función que marca como **no fiable** cualquier texto de alerta o log antes de dárselo al LLM (`marcar_datos_no_fiables` en `src/llm.py`).
 - [ ] Tipos/modelos (pydantic) para alerta, resultado de enriquecimiento (`malicious|clean|unknown`) y ticket. *Hecho para el análisis del LLM; falta el ticket final.*
-- [x] Medir tiempos de consulta; decidir si hace falta índice propio. **Medido: ~2 s por consulta a `/logs` aunque se repita (la API recorre el log entero); 15–45 s de evidencia por alerta. Sí hace falta índice propio (pandas/DuckDB) para ir rápido: tarea pendiente.**
+- [x] Medir tiempos de consulta; decidir si hace falta índice propio. **Medido: con `127.0.0.1` cada consulta tarda 10–70 ms y la evidencia de una alerta ~1 s. (Los ~2 s por consulta que vimos al principio eran de usar `localhost` en Windows, no de la API.) No hace falta índice propio.**
 
 ### Fase 2: Triaje N1 de extremo a extremo (≈4 h) — A
 Empezar por **tres runbooks** que cubran lo más común y después ampliar.
