@@ -5,8 +5,8 @@ Uso (con la API del SOC arrancada y, para el análisis, LLM_API_KEY en .env):
     python -m src.triaje mi_alerta.json                       # alerta nueva en un fichero
     python -m src.triaje ALR-20261005-000301 --solo-evidencia # sin LLM: ver qué se consulta
 
-Pendiente (ver plan de trabajo): la severidad final y el escalado los calculará
-src/policy.py a partir de este resultado.
+Después del LLM, src/policy.py aplica la política del SOC en código: verifica el
+veredicto, calcula la severidad final y decide escalado y permisos de contención.
 """
 
 from __future__ import annotations
@@ -19,6 +19,7 @@ from typing import Any
 
 from src.evidencia import reunir_evidencia
 from src.llm import ErrorLLM, analizar_alerta
+from src.policy import aplicar_politica
 from src.soc_client import ErrorSOC, SocClient
 
 
@@ -39,7 +40,7 @@ def triar(
     con_llm: bool = True,
     enviar=None,
 ) -> dict[str, Any]:
-    """Reúne la evidencia de la alerta y, si con_llm, pide el análisis al modelo."""
+    """Reúne la evidencia y, si con_llm, pide el análisis al modelo y aplica la política."""
     cliente = cliente or SocClient()
     inicio = time.perf_counter()
     evidencia = reunir_evidencia(alerta, cliente)
@@ -50,7 +51,10 @@ def triar(
         "segundos_evidencia": round(time.perf_counter() - inicio, 1),
     }
     if con_llm:
-        resultado["llm"] = analizar_alerta(alerta, evidencia, enviar=enviar).model_dump()
+        llm = analizar_alerta(alerta, evidencia, enviar=enviar)
+        resultado["llm"] = llm.model_dump()
+        # La IA propone; la política (código) decide severidad, escalado y permisos.
+        resultado["politica"] = aplicar_politica(alerta, evidencia, llm.analisis).model_dump()
     return resultado
 
 

@@ -122,6 +122,13 @@ Acordados en el plan de trabajo (sección 4). Cualquier código nuevo debe respe
 - **Trazabilidad.** Cada consulta que hace el sistema queda registrada para enseñarla en la UI («qué consulta y en qué se basa»).
 - **Tres estados de enriquecimiento:** `malicious`, `clean` y `unknown`. Un dato ausente o desconocido nunca cuenta como limpio.
 - **No cargar logs enteros en el contexto del LLM**, solo los eventos filtrados por entidad y ventana de tiempo (±24 h).
+- **La política ya está en código: `src/policy.py`** (con `tests/test_policy.py`). Después del LLM, `aplicar_politica()`:
+  1. **Verifica el veredicto**: `benign_true_positive` solo si cita un cambio `CHG-...` que esté en la evidencia o una regla interna de Tarvia (pentest, NESSUS01, nóminas a la gestoría, ext.logisoft...). Si no, lo pasa a `false_positive` y deja un aviso.
+  2. **Severidad final**: matriz (regla × criticidad del activo más crítico de la CMDB; sin activo, la del servicio: WAF/ECOM → Crítica, AI_GATEWAY → Alta; si no, Media) y ajuste de ±1 como máximo, solo para `true_positive` y `needs_more_info`. VIP/privilegiado se toma del directorio, no del LLM. Falso positivo → `informational`; autorizado → `informational` o `low`.
+  3. **Decisión**: `escalar` (motivos obligatorios de la sección 5: TP high/critical, ejecución confirmada, datos personales o pagos, fraude UC-EML-004/UC-WEB-003), `revisar` (`needs_more_info`) o `cerrar`, con su SLA.
+  4. **Contención**: quién aprueba cada acción sugerida (N1, N2, N2 + negocio, N2 + responsable del servicio) y la prohíbe en OT. Si el veredicto no es TP ni `needs_more_info`, las acciones se descartan.
+
+  Cada decisión lleva su explicación en texto (`razon_severidad`, `motivos_escalado`, `avisos`) para enseñarla en la UI.
 
 ## Repositorio
 

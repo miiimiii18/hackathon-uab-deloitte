@@ -168,13 +168,13 @@ La UI es obligatoria, así que se empieza pronto con datos falsos y se conecta a
 - [ ] **Deduplicación** antes del triaje (≈920 exactas) y **agrupación** de alertas por entidades compartidas (usuario, host, IP, dominio, message_id) en ventana de horas/días, para generar **un solo ticket** con todos los `alert_ids`.
 - [ ] Una señal débil sola es baja, pero **varias alertas bajas encadenadas** (ej. correo → clic → PowerShell → beacon → login anómalo) forman un incidente: escalar.
 - [ ] Búsqueda de **actividad autorizada**: calendario de cambios (`/changes`), RRHH (viajes, bajas), reglas internas de Tarvia, ventana de escaneo, pentest. Argumentar siempre el descarte citando la fuente.
-- [ ] Criticidad real del activo desde CMDB y de la identidad más crítica (VIP/privilegiada) para la matriz.
+- [x] Criticidad real del activo desde CMDB y de la identidad más crítica (VIP/privilegiada) para la matriz. *En `src/policy.py`.*
 - [ ] Incidentes largos: cruzar alertas de días o semanas distintas (ej. persona de baja voluntaria que sube datos a almacenamiento personal).
 
 ### Fase 5: Contención controlada, nivel 4 mínimo (≈2 h) — A + B
-- [ ] Mapa veredicto/runbook → acciones propuestas con `requires_approval` correcto.
+- [x] Mapa veredicto/runbook → acciones propuestas con `requires_approval` correcto. *En `src/policy.py` (`permisos_accion`): el LLM sugiere la acción y el código decide quién la aprueba.*
 - [ ] Flujo UI: botón "Aprobar" → `POST /approvals` (aprobador, motivo) → `POST /containment/{acción}` con el token. `block_ioc` y `purge_email` sin token.
-- [ ] Guardas en código: nada sobre OT; no bloquear globalmente mega.nz/AnyDesk; avisar del impacto de negocio al deshabilitar cuentas de servicio o aislar TPV/frontales.
+- [x] Guardas en código: nada sobre OT; no bloquear globalmente mega.nz/AnyDesk; avisar del impacto de negocio al deshabilitar cuentas de servicio o aislar TPV/frontales.
 - [ ] Mostrar `executed_actions` en el ticket y el `containment_log`.
 
 ### Fase 6: Nivel 3, investigación (solo si N1/N2 están sólidos) — A
@@ -237,7 +237,7 @@ writeups/                # 01-nivel1.md, 02-nivel2.md, ... desde _plantilla.md
 - [ ] `.env.example`, **sin valores**: `SOC_API_URL`, `LLM_API_KEY` (o el nombre que toque), opcionales de reputación (`VT_API_KEY`, `ABUSEIPDB_API_KEY`).
 - [ ] `data/README.md`: origen del dataset y versión.
 - [ ] `docs/pitch.md` y `docs/limitaciones.md`.
-- [ ] `tests/test_policy.py` primero: es lo más barato de probar y lo más fácil de enseñar.
+- [x] `tests/test_policy.py` primero: es lo más barato de probar y lo más fácil de enseñar.
 - [ ] Salidas generadas (`data/out/`, `containment_log.jsonl`) quedan dentro de `data/`, que git ignora.
 
 ### Cambios sugeridos al `CLAUDE.md` actual
