@@ -161,7 +161,12 @@ uvicorn mock_soc_api:app --app-dir data/tarvia/06_herramientas --port 8000
 python -m src.triaje ALR-20261005-000301
 python -m src.triaje mi_alerta.json                        # alerta nueva en un fichero
 python -m src.triaje ALR-20261005-000301 --solo-evidencia  # sin LLM
+
+# Varias alertas EN PARALELO (por defecto 4 a la vez; máximo 8, el servidor es compartido)
+python -m src.triaje ALR-1 ALR-2 ALR-3 --paralelo 5 --salida data/out/lote
 ```
+
+Medido con 10 alertas: una detrás de otra, 195 s; con 5 en paralelo, 58 s (3,4× más rápido, mismos veredictos). Para la UI: `triar_en_paralelo()` devuelve cada alerta en cuanto termina (para ir llenando la cola) y `triar_lote()` las devuelve todas en orden. Cada alerta usa su propio `SocClient` y un fallo en una no para las demás (`{"error": ...}`).
 
 Piezas del triaje: `src/soc_client.py` (cliente de la API con caché, traza y búsqueda exacta), `src/evidencia.py` (qué se consulta según el runbook) y `src/llm.py` (análisis con el modelo local). Reunir la evidencia lleva ~1 s por alerta; casi todo el tiempo del triaje es del modelo.
 
