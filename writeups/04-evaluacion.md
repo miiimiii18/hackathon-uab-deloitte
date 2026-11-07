@@ -47,7 +47,7 @@ Dos reglas fijas en `src/policy.py`: (1) la cuenta `ext.logisoft` fuera de lunes
 Sobre 102 triajes: sin logs la confianza cae (media 0,25), pero con un indicador `unknown` apenas baja (0,86 frente a 0,87). `unknown` aparece en 66 de los 102, así que bajarla por código sería ruido; no se tocó. Sí discrimina el acierto: media 0,88 en aciertos y 0,67 en fallos, con 2 de 15 fallos en 0,9 o más.
 
 ## Pendiente
-- Endurecer en código los dos casos de ataque cerrado y revisar las etiquetas con una persona ajena al equipo.
+- Revisar las etiquetas con una persona ajena al equipo. (El endurecimiento en código de los dos ataques cerrados se hizo el 7-nov en `src/policy.py`.)
 
 ## Lo que aprendimos
 - Las cifras varían ±2 casos entre ejecuciones: hay que repetir.

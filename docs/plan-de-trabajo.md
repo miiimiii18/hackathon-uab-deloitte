@@ -13,7 +13,7 @@ Construir un **sistema de agentes de IA que haga el triaje N1 del SOC de Tarvia*
 |---|---|---|
 | Sistema que triaje alertas (nivel 1) | Sí | Veredicto, severidad, evidencias, recomendación (cerrar/escalar) |
 | **Demo visual** (UI/panel, no consola) | Sí | Cola de alertas, qué consulta la IA, en qué se basa, qué propone, dónde decide la persona |
-| **10 alertas comunes en directo** | Sí | Las mismas para todos los equipos, el último día. **Serán alertas nuevas, no del dataset.** |
+| **10 alertas comunes en directo** | Sí | Las mismas para todos los equipos, el último día. El README solo dice «un pequeño conjunto de alertas»: **no consta si serán del dataset o nuevas**, así que el sistema acepta ambas (pegar JSON o elegir del dataset). |
 | **Una página para el comité de dirección de Tarvia** | Sí (sale solo en el PPTX, no en el README) | Resumen no técnico: qué hace, qué aporta, qué no resuelve |
 | Explicar hasta qué nivel llegamos y cómo lo construimos | Sí | Es parte de la defensa |
 | Tickets en formato `ticket_salida.schema.json` | Opcional, conviene | Informe N3 en `informe_incidente.schema.json` |
@@ -163,7 +163,7 @@ La UI es obligatoria, así que se empieza pronto con datos falsos y se conecta a
 - [x] **Panel "Qué decide la IA / qué decide la persona"** visible siempre: la IA propone veredicto, severidad y acciones; la persona acepta, cambia o rechaza. *Tres tarjetas fijas bajo la barra de pasos (IA propone / Código decide / Persona decide) y, en «Tu decisión», un formulario para **corregir el veredicto y la severidad** con nombre y motivo obligatorios (`tipo: corregir`, validado en el servidor). La corrección queda anotada en `humano`, se ve en la cola («Persona: …») y no cambia lo que calculó el código.*
 - [x] Botones de **aprobar/rechazar** acciones propuestas. *Aprobar con «mantén pulsado» y nombre; rechazar; cerrar o pasar a N2.*
 - [x] Pantalla o pestaña de **alerta nueva** (pegar JSON) para la demo en vivo. *Panel «Cargar alertas»: pegar JSON, subir `.json`/`.jsonl` o elegir del dataset, con validación de campos.*
-- [x] Panel de **"límites de esta solución"** (ver fase 8). *Franja «Lo que no resuelve» en la cola; falta el documento `docs/limitaciones.md` (fase 8).*
+- [x] Panel de **"límites de esta solución"** (ver fase 8). *Franja «Lo que no resuelve» en la cola; el detalle está en `docs/limitaciones.md`.*
 
 ### Fase 4: Nivel 2, criterio y correlación (≈4 h) — A
 - [x] **Agrupación** de alertas por entidades compartidas (usuario, host, IP, dominio, hash, cliente, identidad cloud, message_id) con ventana por tipo de entidad, para generar **un solo ticket** con todos los `alert_ids`. *Hecho el 7-nov en `src/agrupar.py` (`agrupar`, `consolidar_grupo`, `agrupar_resultados`) y la regla de grupo en `src/policy.py` (`decision_de_grupo`); web: `GET /api/grupos`, etiqueta «Mismo ataque» en la cola y panel en el detalle. Agrupa solo lo ya triado y sospechoso (true_positive / needs_more_info): un falso positivo no se une a una intrusión. Validado con el dataset entero (con las 9 reglas ruidosas fuera como sustituto del triaje): 22 grupos de 2–18 alertas que corresponden a incidentes reales, y con 5 alertas triadas de verdad (phishing de SSO → toma de cuenta): 1 ticket crítico escalado, válido contra el esquema. Tests en `tests/test_agrupar.py`.*
@@ -181,7 +181,7 @@ La UI es obligatoria, así que se empieza pronto con datos falsos y se conecta a
 
 ### Fase 6: Nivel 3, investigación (solo si N1/N2 están sólidos) — A
 - [x] Para los tickets escalados, generar informe según `informe_incidente.schema.json`: paciente cero, acceso inicial, timeline con IDs de evento y MITRE, alcance, causa raíz, plan de contención, notificaciones (DPO/AEPD 72 h, PCI, proveedor), huecos de detección. *Hecho el 7-nov en `src/investigacion.py`. Reparto: el **código** construye los IDs de alerta, la línea de tiempo (solo eventos reales de las alertas y de los logs que reunió el triaje), el alcance, el plan de contención (las acciones del ticket con quién aprueba cada una; lo de OT sale como «solo escalar») y las notificaciones (DPO y AEPD en 72 h, Finanzas, PCI, proveedor, Operaciones, SLA); el **LLM** solo redacta paciente cero, acceso inicial, causa raíz, datos afectados, erradicación, huecos y preguntas, con el expediente como datos no fiables y salida JSON validada. El informe se valida contra el esquema (copiado en `src/esquemas/`) y el código comprueba que el paciente cero sea una entidad de las alertas (si no, lo marca en las preguntas abiertas). Solo se genera para lo escalado (el servidor lo comprueba) y, si la alerta forma un grupo, el informe es del grupo entero. Web: `POST /api/resultados/{id}/investigar`, `GET /api/resultados/{id}/informe` y panel «Informe de investigación · nivel 3» en el detalle. Tests en `tests/test_investigacion.py` (11) y `tests/test_web.py`.*
-- [x] Probar sobre 2–3 incidentes bien elegidos, no sobre todos. *Probado con el LLM real en 4 incidentes ya triados, los 4 con informe válido contra el esquema (10–15 s cada uno): el phishing de SSO que acaba en toma de cuenta (5 alertas agrupadas, 14 eventos en la línea de tiempo, confianza 0,85), el malware Latrodectus (`ALR-20261009-011791`), el fraude con tarjeta regalo en la tienda online (`ALR-20261011-011807`) y el phishing con instrucciones ocultas (`ALR-20261020-011905`; el informe ignora la instrucción y la anota como hueco de detección). La prueba destapó un fallo que arreglamos: el paciente cero «cuenta de cliente C710144» se marcaba como no verificable porque no se comparaban los clientes ni las identidades cloud. **Límites:** el informe llega solo hasta donde llegan las alertas triadas (el incidente de Latrodectus tiene 18 alertas en el dataset y solo una está triada, así que no ve el resto de la cadena); la línea de tiempo se limita a los eventos que reunió el triaje (±24 h por alerta); `related_incidents` va vacío; y el contenido lo hemos revisado leyéndolo, sin analista externo.*
+- [x] Probar sobre 2–3 incidentes bien elegidos, no sobre todos. *Probado con el LLM real en 4 incidentes ya triados, los 4 con informe válido contra el esquema (10–15 s cada uno): el phishing de SSO que acaba en toma de cuenta (5 alertas agrupadas, 14 eventos en la línea de tiempo, confianza 0,85), el malware Latrodectus (`ALR-20261009-011791`), el fraude con tarjeta regalo en la tienda online (`ALR-20261011-011807`) y el phishing con instrucciones ocultas (`ALR-20261020-011905`; el informe ignora la instrucción y la anota como hueco de detección). La prueba destapó un fallo que arreglamos: el paciente cero «cuenta de cliente C710144» se marcaba como no verificable porque no se comparaban los clientes ni las identidades cloud. **Límites:** el informe llega solo hasta donde llegan las alertas triadas (el incidente de Latrodectus tiene 18 alertas en el dataset y solo una está triada, así que no ve el resto de la cadena); la línea de tiempo se limita a los eventos que reunió el triaje (±24 h por alerta); `related_incidents` va vacío; y el contenido lo hemos revisado leyéndolo, sin analista externo.* **Ojo frente al enunciado:** el README pide en el N3 «origen, alcance y relación con otros incidentes»; origen y alcance sí, la relación con otros incidentes **no** (declarado en `docs/limitaciones.md`).
 
 ### Fase 7: Evaluación honesta (≈2 h) — C, desde la hora 6
 No hay etiquetas, así que:
@@ -193,10 +193,10 @@ No hay etiquetas, así que:
 
 ### Fase 8: Alertas nuevas y preparación de la defensa (últimas 6 h) — todos
 - [x] Probar el modo en vivo con alertas **inventadas por nosotros**, de al menos 5 familias distintas, y con una alerta sin ningún dato en los logs. *9 alertas de 8 familias + una casi vacía y otra sin datos en los logs (ver arriba).*
-- [x] Guion de la demo (3–5 min): una alerta ruidosa que se cierra, una actividad autorizada que se descarta con argumento, un incidente agrupado y escalado, una contención aprobada por una persona, un intento de prompt injection ignorado. *Hecho en `docs/pitch.md` (con checklist y plan B). Ojo: «incidente agrupado» aún no existe; se enseña uno escalado.*
+- [x] Guion de la demo (3–5 min): una alerta ruidosa que se cierra, una actividad autorizada que se descarta con argumento, un incidente agrupado y escalado, una contención aprobada por una persona, un intento de prompt injection ignorado. *Hecho en `docs/pitch.md` (con checklist y plan B). El incidente agrupado ya existe: minuto 3:00 (phishing de SSO, 5 alertas → «Mismo ataque») y 3:10 (informe N3).*
 - [x] **One-pager para el comité de dirección** (`docs/one-pager-comite.md`): problema, qué hace el piloto, qué decide la IA y qué la persona, resultados medidos, qué NO resuelve, siguientes pasos. Sin jerga.
-- [x] **`docs/limitaciones.md`** y panel en la UI con los límites reales (ver abajo). *Documento hecho el 7-nov; hay que actualizarlo si se añade agrupación o N3.*
-- [x] **Writeups** por nivel en `writeups/NN-nombre.md`. *`01-nivel1-triaje`, `02-nivel2-criterio`, `03-contencion-n4` y `04-evaluacion`; faltan completar los apartados «Pendiente» si se hacen la agrupación y el N3.*
+- [x] **`docs/limitaciones.md`** y panel en la UI con los límites reales (ver abajo). *Documento hecho el 7-nov y ya actualizado con los límites de la agrupación y del N3.*
+- [x] **Writeups** por nivel en `writeups/NN-nombre.md`. *`01-nivel1-triaje`, `02-nivel2-criterio`, `03-contencion-n4`, `04-evaluacion` y `05-nivel3-investigacion`; apartados «Pendiente» revisados el 7-nov.*
 - [ ] Ensayar la demo completa dos veces con cronómetro. Plan B grabado en vídeo/capturas por si falla la API. *Hecho el 7-nov el ensayo técnico, sin persona: triar por la web las 10 alertas de la cola + 5 del incidente de phishing de SSO = 15 alertas en 57 s con 5 en paralelo (todas guardadas en `data/out/web/`, que es el modo demo), y 4 alertas inventadas pegadas como JSON en 16 s. **Falta** el ensayo humano con cronómetro y grabar el vídeo/capturas. Antes de la defensa: borrar `containment_log.jsonl` (hoy no existe, el registro está vacío).*
 - [ ] **Congelar `main` las 2 últimas horas:** solo arreglos y demo.
 
@@ -285,3 +285,25 @@ Antes del commit, enseñar qué se sube y esperar confirmación. Después, abrir
 - [x] **Reparto de áreas** entre las personas del equipo. **Decidido: todos hacemos de todo.**
 - [x] ¿Usamos consultas OSINT reales (VirusTotal, AbuseIPDB…)? **Decidido: no.** Solo usamos la inteligencia interna del dataset (TIP, GeoIP, sandbox); un indicador sin entrada se trata como `unknown`. Declarado en `docs/limitaciones.md`. Los IOC reales no se visitan ni se escanean.
 - [x] ¿Triajeamos las 11.061 alertas o un subconjunto? **Decidido: un subconjunto.** Triadas y medidas: la muestra de 150, el gold set de 42, 9 inventadas y las 10 de la cola de la demo (+ 5 de un incidente agrupable). La deduplicación (≈920) existe como función. El resto del dataset no se ha triado; declarado en `docs/limitaciones.md`.
+
+---
+
+## 9. Comprobación contra el enunciado de Deloitte (7-nov)
+
+Revisado punto por punto contra el `README.md` del repo de Deloitte.
+
+| Pide el enunciado | Estado | Dónde |
+|---|---|---|
+| N1: entender, enriquecer con contexto e inteligencia, veredicto, severidad, cerrar o escalar | ✅ | `src/evidencia.py`, `src/llm.py`, `src/policy.py`, `src/ticket.py` |
+| N2: agrupar alertas del mismo ataque | ✅ (solo lo que está en la cola) | `src/agrupar.py` |
+| N2: matriz de severidad con la criticidad real del activo | ✅ | `src/policy.py` |
+| N2: descartar con argumentos la actividad autorizada | ✅ | `src/policy.py` (CHG/FLUJO verificados, reglas internas) |
+| N3: cadena de ataque, aunque dure días, con origen y alcance | ✅ | `src/investigacion.py` |
+| N3: relación con otros incidentes | ❌ `related_incidents` vacío | declarado en `docs/limitaciones.md` |
+| N4: proponer contención y ejecutarla en la API simulada con aprobación humana | ✅ | `src/contencion.py`, `#/registro` |
+| Demo visual: cola, qué consulta, en qué se basa, qué propone, dónde interviene la persona | ✅ | `src/web/` |
+| Alertas comunes en directo | ✅ técnico / ⏳ falta ensayo con persona | pegar JSON o «Del dataset»; `docs/pitch.md` |
+| Honestidad sobre lo que no resuelve | ✅ | `docs/limitaciones.md`, franja en la cola, one-pager |
+| Formatos de salida de referencia (opcionales) | ✅ ambos, validados | `src/esquemas/` |
+| No obedecer datos escritos por el atacante | ✅ | `marcar_datos_no_fiables`, 16/16 en la evaluación |
+| Desconocido ≠ limpio; duplicados; eventos fuera de `related_events` | ✅ / ⚠️ deduplicación sin conectar / ✅ | `src/evidencia.py`, `src/agrupar.py` |
