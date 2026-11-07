@@ -85,6 +85,28 @@ def _obtener_http(base_url: str, timeout: float) -> Obtener:
     return obtener
 
 
+# Lo mismo para las peticiones POST (aprobaciones y contención): (ruta, cuerpo JSON).
+Publicar = Callable[[str, dict[str, Any]], tuple[int, Any]]
+
+
+def _publicar_http(base_url: str, timeout: float) -> Publicar:
+    def publicar(ruta: str, cuerpo: dict[str, Any]) -> tuple[int, Any]:
+        try:
+            r = requests.post(base_url + ruta, json=cuerpo, timeout=timeout)
+        except requests.ConnectionError as e:
+            raise ErrorSOC(
+                f"No hay conexión con la API del SOC en {base_url}. ¿Está arrancada (uvicorn)?"
+            ) from e
+        except requests.Timeout as e:
+            raise ErrorSOC(f"La API del SOC tardó más de {timeout:.0f} s en {ruta}") from e
+        try:
+            return r.status_code, r.json()
+        except ValueError:
+            return r.status_code, r.text
+
+    return publicar
+
+
 # --- Utilidades ---------------------------------------------------------------------
 
 
@@ -149,17 +171,19 @@ class SocClient:
         base_url: str = SOC_API_URL,
         *,
         obtener: Obtener | None = None,
+        publicar: Publicar | None = None,
         timeout: float = TIMEOUT,
     ):
         self.base_url = base_url
         self._obtener = obtener or _obtener_http(base_url, timeout)
+        self._publicar = publicar or _publicar_http(base_url, timeout)
         self._cache: dict[tuple, Any] = {}
         self.traza: list[dict[str, Any]] = []
 
-    def _get(self, ruta: str, params: dict[str, Any] | None = None) -> Any | None:
+    def _get(self, ruta: str, params: dict[str, Any] | None = None, *, usar_cache: bool = True) -> Any | None:
         params = {k: v for k, v in (params or {}).items() if v not in (None, "")}
         clave = (ruta, tuple(sorted(params.items())))
-        if clave in self._cache:
+        if usar_cache and clave in self._cache:
             resultado = self._cache[clave]
             self.traza.append(
                 {"consulta": ruta, "parametros": params, "resultados": _contar(resultado),
@@ -246,3 +270,32 @@ class SocClient:
             if e.get("event_id") == event_id:
                 return {"fuente": fuente, **e}
         return None
+
+    # Contención (POST). No se cachea: cada llamada tiene efecto (aunque sea simulado).
+
+    def _post(self, ruta: str, cuerpo: dict[str, Any]) -> Any:
+        inicio = time.perf_counter()
+        estado, respuesta = self._publicar(ruta, cuerpo)
+        ms = round((time.perf_counter() - inicio) * 1000)
+        self.traza.append({"consulta": f"POST {ruta}", "parametros": cuerpo, "resultados": 1 if estado == 200 else 0,
+                           "ms": ms, "cache": False, "estado": estado})
+        if estado != 200:
+            detalle = respuesta.get("detail", respuesta) if isinstance(respuesta, dict) else respuesta
+            raise ErrorSOC(f"La API del SOC rechazó {ruta} ({estado}): {str(detalle)[:200]}")
+        return respuesta
+
+    def aprobar(self, accion: str, objetivo: str, aprobador: str, motivo: str = "") -> str:
+        """Registra la aprobación de una persona y devuelve el approval_token."""
+        r = self._post("/approvals", {"action": accion, "target": objetivo, "approver": aprobador, "reason": motivo})
+        return r["approval_token"]
+
+    def contener(self, accion: str, objetivo: str, justificacion: str, token: str = "", ticket_id: str = "") -> dict:
+        """Ejecuta una acción de contención (simulada). Sin token solo vale block_ioc y purge_email."""
+        return self._post(
+            f"/containment/{self._ruta(accion)}",
+            {"target": objetivo, "justification": justificacion, "approval_token": token, "ticket_id": ticket_id},
+        )
+
+    def registro_contencion(self) -> list[dict]:
+        """Todas las acciones ejecutadas hasta ahora (containment_log.jsonl de la API)."""
+        return self._get("/containment/log", usar_cache=False) or []
