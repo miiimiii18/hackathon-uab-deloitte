@@ -6,6 +6,8 @@ Web propia para la demo: la cola de alertas en directo, qué consulta la IA, en 
 
 ## Arrancar
 
+Instalación desde cero en otro ordenador, paso a paso: [`docs/arrancar.md`](arrancar.md).
+
 Dos procesos, desde la raíz del repo y con el entorno activado:
 
 ```bash

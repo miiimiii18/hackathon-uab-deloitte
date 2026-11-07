@@ -23,12 +23,23 @@ Resumen del reto de Deloitte con vuestras palabras (copiadlo del briefing el dí
 
 ## 🚀 Cómo ejecutarlo
 
-```bash
-git clone https://github.com/<usuario>/<repo>.git
-cd <repo>
-bash scripts/setup.sh        # crea el entorno e instala dependencias
-cp .env.example .env         # rellena tus claves (NUNCA subas .env)
-python -m src.main
+Guía completa, paso a paso y con los problemas típicos: **[`docs/arrancar.md`](docs/arrancar.md)**.
+
+Resumen (Windows, PowerShell):
+```powershell
+git clone https://github.com/miiimiii18/hackathon-uab-deloitte.git
+cd hackathon-uab-deloitte
+python -m venv .venv
+.venv\Scripts\python -m pip install -r requirements.txt
+git clone https://github.com/dttdfr/DTT-UAB-The-Hack.git data/tarvia   # dataset de Deloitte
+copy .env.example .env                                                   # pon LLM_API_KEY (NUNCA subas .env)
+
+# Terminal 1: API simulada del SOC
+.venv\Scripts\python -m uvicorn mock_soc_api:app --app-dir data/tarvia/06_herramientas --host 127.0.0.1 --port 8000
+# Terminal 2: la web → http://127.0.0.1:8080
+.venv\Scripts\python -m src.web
+# Terminal 3 (una vez por ordenador): resultados guardados para el modo demo
+.venv\Scripts\python -m scripts.preparar_demo --informe
 ```
 
 ## 🗂️ Estructura
