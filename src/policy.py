@@ -231,6 +231,7 @@ def violaciones_reglas_duras(alerta: dict[str, Any], evidencia: dict[str, Any]) 
 
     - Solo ENG-WS01 y WMS01 pueden hablar con la red OT; cualquier otro acceso necesita un cambio.
     - Las cuentas adm.* solo pueden usarse desde JUMP01.
+    - ext.logisoft (proveedor) solo accede de lunes a viernes, de 8 a 18 h (hora de España).
     """
     entidades = alerta.get("entities") or {}
     hosts = [str(h.get("hostname", "")) for h in entidades.get("hosts", []) if isinstance(h, dict) and h.get("hostname")]
@@ -250,6 +251,12 @@ def violaciones_reglas_duras(alerta: dict[str, Any], evidencia: dict[str, Any]) 
     fuera = [h for h in hosts if h.upper() != "JUMP01"]
     if admins and fuera:
         violaciones.append(f"cuenta {', '.join(admins)} usada desde {', '.join(fuera)} (las cuentas adm.* solo desde JUMP01)")
+    momento = a_fecha(str(alerta.get("created_at", "")))
+    proveedor = any(isinstance(u, dict) and str(u.get("upn", "")).lower().startswith("ext.logisoft")
+                    for u in entidades.get("users", []))
+    # Sin hora no se puede afirmar que esté fuera de horario: no cuenta como violación.
+    if proveedor and momento is not None and not _en_horario_logisoft(momento):
+        violaciones.append("cuenta ext.logisoft usada fuera de su horario (lunes a viernes, 8 a 18 h, hora de España)")
     return violaciones
 
 
@@ -358,6 +365,16 @@ def aplicar_politica(alerta: dict[str, Any], evidencia: dict[str, Any], analisis
     sev_regla = alerta.get("severity") if alerta.get("severity") in SEVERIDADES else "medium"
     if sev_regla != alerta.get("severity"):
         avisos.append(f"Severidad de la regla desconocida ({alerta.get('severity')!r}): se asume medium.")
+
+    # Las detecciones críticas (volcado de credenciales, borrado de copias, web shell, sabotaje del EDR...)
+    # no las cierra el N1 sin una autorización verificada: un falso positivo aquí cuesta mucho menos que un
+    # ataque cerrado por error, y el modelo no siempre es estable (cerró un volcado de LSASS en 1 de 2 pruebas).
+    if sev_regla == "critical" and not autorizacion and veredicto in ("false_positive", "benign_true_positive"):
+        avisos.append(
+            f"El modelo dijo {veredicto}, pero la regla es de severidad crítica y no hay una autorización verificada. "
+            "No se cierra: pasa a needs_more_info para que lo revise una persona."
+        )
+        veredicto = "needs_more_info"
     criticidad, origen = criticidad_afectada(alerta, evidencia)
     base = MATRIZ[sev_regla][CRITICIDADES.index(criticidad)]
     privilegiados = identidad_privilegiada(evidencia)

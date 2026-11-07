@@ -311,3 +311,63 @@ def test_cuenta_adm_fuera_de_jump01():
     assert violaciones_reglas_duras(dentro, {}) == []
     d = aplicar_politica({**alerta("high"), **fuera}, {}, analisis("false_positive"))
     assert d.veredicto == "needs_more_info"
+
+
+# --- Endurecimiento: un ataque no se cierra por un fallo del modelo ----------------------------------
+
+ENT_LOGISOFT = {"users": [{"upn": "ext.logisoft@tarvia.example"}], "hosts": [{"hostname": "WMS01"}]}
+
+
+def vpn(creada):
+    return {**alerta("low", "VPN", "UC-VPN-001"), "created_at": creada, "entities": ENT_LOGISOFT}
+
+
+def test_logisoft_de_madrugada_en_domingo_no_se_cierra_como_falso_positivo():
+    from src.policy import violaciones_reglas_duras
+
+    domingo = vpn("2026-10-18T00:46:00.000Z")  # domingo 02:46 en España
+    assert "fuera de su horario" in violaciones_reglas_duras(domingo, {})[0]
+    for veredicto in ("false_positive", "benign_true_positive"):
+        d = aplicar_politica(domingo, {}, analisis(veredicto, confianza=0.95))
+        assert d.veredicto == "needs_more_info" and d.decision == "revisar"
+        assert any("ext.logisoft" in a for a in d.avisos)
+
+
+def test_logisoft_en_horario_sigue_cerrandose():
+    laborable = vpn("2026-10-14T09:00:00.000Z")  # miércoles 11:00 en España
+    d = aplicar_politica(laborable, {}, analisis("false_positive", confianza=0.95))
+    assert d.veredicto == "false_positive"
+
+
+def test_logisoft_fuera_de_horario_con_cambio_verificado_se_puede_cerrar():
+    domingo = vpn("2026-10-18T00:46:00.000Z")
+    cambio = {"id": "CHG-2026-1099", "titulo": "Mantenimiento del WMS por Logisoft",
+              "inicio": "2026-10-18 01:00", "fin": "2026-10-18 05:00"}
+    a = analisis("benign_true_positive", referencia_autorizacion="CHG-2026-1099")
+    d = aplicar_politica(domingo, {"cambios_aprobados": [cambio]}, a)
+    assert d.autorizacion.startswith("CHG-2026-1099") and d.veredicto == "benign_true_positive"
+
+
+def test_logisoft_sin_hora_no_se_considera_fuera_de_horario():
+    from src.policy import violaciones_reglas_duras
+
+    sin_hora = {"entities": ENT_LOGISOFT}
+    assert violaciones_reglas_duras(sin_hora, {}) == []
+
+
+def test_regla_critica_no_se_cierra_sin_autorizacion_verificada():
+    volcado = {**alerta("critical", "EDR", "UC-EDR-004"), "entities": {"hosts": [{"hostname": "WS-BCN-1"}]}}
+    for veredicto in ("false_positive", "benign_true_positive"):
+        d = aplicar_politica(volcado, {"activos": PORTATIL}, analisis(veredicto, confianza=0.95, referencia_autorizacion="pentest"))
+        assert d.veredicto == "needs_more_info" and d.decision == "escalar"  # critical × Media = critical
+        assert any("severidad crítica" in a for a in d.avisos)
+
+
+def test_regla_no_critica_si_puede_cerrarse_como_falso_positivo():
+    d = aplicar_politica(alerta("high"), {"activos": PORTATIL}, analisis("false_positive", confianza=0.95))
+    assert d.veredicto == "false_positive" and d.decision == "cerrar"
+
+
+def test_regla_critica_que_es_un_ataque_sigue_igual():
+    d = aplicar_politica(alerta("critical"), {"activos": PORTATIL}, analisis("true_positive"))
+    assert d.veredicto == "true_positive" and not any("severidad crítica" in a for a in d.avisos)
