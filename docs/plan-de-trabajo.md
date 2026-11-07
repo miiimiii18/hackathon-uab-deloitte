@@ -173,9 +173,9 @@ La UI es obligatoria, así que se empieza pronto con datos falsos y se conecta a
 
 ### Fase 5: Contención controlada, nivel 4 mínimo (≈2 h) — A + B
 - [x] Mapa veredicto/runbook → acciones propuestas con `requires_approval` correcto. *En `src/policy.py` (`permisos_accion`): el LLM sugiere la acción y el código decide quién la aprueba.*
-- [ ] Flujo UI: botón "Aprobar" → `POST /approvals` (aprobador, motivo) → `POST /containment/{acción}` con el token. `block_ioc` y `purge_email` sin token.
+- [ ] Flujo UI: botón "Aprobar" → `POST /approvals` (aprobador, motivo) → `POST /containment/{acción}` con el token. `block_ioc` y `purge_email` sin token. *Backend hecho en `src/contencion.py` (`ejecutar_accion`); falta el botón en la UI.*
 - [x] Guardas en código: nada sobre OT; no bloquear globalmente mega.nz/AnyDesk; avisar del impacto de negocio al deshabilitar cuentas de servicio o aislar TPV/frontales.
-- [ ] Mostrar `executed_actions` en el ticket y el `containment_log`.
+- [ ] Mostrar `executed_actions` en el ticket y el `containment_log`. *Backend hecho (`registrar_en_ticket`, `SocClient.registro_contencion`); falta mostrarlo en la UI.*
 
 ### Fase 6: Nivel 3, investigación (solo si N1/N2 están sólidos) — A
 - [ ] Para los tickets escalados, generar informe según `informe_incidente.schema.json`: paciente cero, acceso inicial, timeline con IDs de evento y MITRE, alcance, causa raíz, plan de contención, notificaciones (DPO/AEPD 72 h, PCI, proveedor), huecos de detección.

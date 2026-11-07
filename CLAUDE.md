@@ -129,6 +129,7 @@ Acordados en el plan de trabajo (sección 4). Cualquier código nuevo debe respe
   4. **Contención**: quién aprueba cada acción sugerida (N1, N2, N2 + negocio, N2 + responsable del servicio) y la prohíbe en OT. Si el veredicto no es TP ni `needs_more_info`, las acciones se descartan.
 
   Cada decisión lleva su explicación en texto (`razon_severidad`, `motivos_escalado`, `avisos`) para enseñarla en la UI.
+- **La contención la ejecuta una persona: `src/contencion.py`** (con `tests/test_contencion.py`). `ejecutar_accion(accion, aprobador=...)` recibe una acción de `politica["acciones"]` (o de `ticket["recommended_actions"]`) y llama a la API simulada: si requiere aprobación, `POST /approvals` con el nombre de la persona y después `POST /containment/{acción}` con el token. **El código nunca se aprueba a sí mismo**: sin `aprobador` no ejecuta nada; las prohibidas por la política (OT) no se ejecutan, y la propia API también las rechaza. Limpia el objetivo que sugiere el LLM (`WS-BCN-1770 (10.10.3.95)` → `WS-BCN-1770`) y bloquea los IOC de uno en uno. `registrar_en_ticket()` añade el resultado a `executed_actions`. Desde la terminal: `python -m src.contencion <resultado.json>` (lista las acciones), `... <resultado.json> <n> --aprobador "N2 - Nombre"` (ejecuta) y `python -m src.contencion --registro`. El registro se guarda en `data/tarvia/06_herramientas/containment_log.jsonl` (borrarlo lo reinicia).
 
 ## Repositorio
 
