@@ -157,9 +157,9 @@ Empezar por **tres runbooks** que cubran lo más común y después ampliar.
 ### Fase 3: Demo visual (en paralelo desde la hora 2) — B
 La UI es obligatoria, así que se empieza pronto con datos falsos y se conecta al motor cuando esté.
 - [x] Elegir stack rápido (propuesta: **Streamlit** o Gradio; si hay alguien con experiencia en front, FastAPI + HTML/React). **Decidido: Streamlit.** *Cambiado el 7 nov: web propia (FastAPI + HTML/CSS/JS sin build, en `src/web/`) para diferenciarnos con una UI con animaciones; ver `docs/web.md`.*
-- [ ] **Cola de alertas** filtrable por regla, severidad, veredicto y estado.
-- [ ] **Vista de caso:** alerta original, línea de tiempo de consultas (`trace`), evidencias con su fuente, enriquecimiento, razonamiento de severidad (cómo se aplicó la matriz), veredicto y confianza.
-- [ ] **Panel "Qué decide la IA / qué decide la persona"** visible siempre: la IA propone veredicto, severidad y acciones; la persona acepta, cambia o rechaza.
+- [x] **Cola de alertas** filtrable por regla, severidad, veredicto y estado. *Hecho el 7-nov (`vista-cola.js`): cuatro filtros que se conservan al volver del detalle, contador «N de M a la vista» y «Quitar filtros». Comprobado en el navegador con 22 alertas: severidad crítica 7, estado «Cerrar» 12.*
+- [x] **Vista de caso:** alerta original, línea de tiempo de consultas (`trace`), evidencias con su fuente, enriquecimiento, razonamiento de severidad (cómo se aplicó la matriz), veredicto y confianza. *En `vista-detalle.js`; la alerta original está en el panel «Alerta original» (`GET /api/alertas/{id}/original`: la del resultado o, si es antigua, la del dataset).*
+- [x] **Panel "Qué decide la IA / qué decide la persona"** visible siempre: la IA propone veredicto, severidad y acciones; la persona acepta, cambia o rechaza. *Tres tarjetas fijas bajo la barra de pasos (IA propone / Código decide / Persona decide) y, en «Tu decisión», un formulario para **corregir el veredicto y la severidad** con nombre y motivo obligatorios (`tipo: corregir`, validado en el servidor). La corrección queda anotada en `humano`, se ve en la cola («Persona: …») y no cambia lo que calculó el código.*
 - [ ] Botones de **aprobar/rechazar** acciones propuestas.
 - [ ] Pantalla o pestaña de **alerta nueva** (pegar JSON) para la demo en vivo.
 - [ ] Panel de **"límites de esta solución"** (ver fase 8).
@@ -176,7 +176,7 @@ La UI es obligatoria, así que se empieza pronto con datos falsos y se conecta a
 - [x] Mapa veredicto/runbook → acciones propuestas con `requires_approval` correcto. *En `src/policy.py` (`permisos_accion`): el LLM sugiere la acción y el código decide quién la aprueba.*
 - [ ] Flujo UI: botón "Aprobar" → `POST /approvals` (aprobador, motivo) → `POST /containment/{acción}` con el token. `block_ioc` y `purge_email` sin token. *Backend hecho en `src/contencion.py` (`ejecutar_accion`); botón «mantén pulsado para aprobar» hecho en la web (`src/web/`).*
 - [x] Guardas en código: nada sobre OT; no bloquear globalmente mega.nz/AnyDesk; avisar del impacto de negocio al deshabilitar cuentas de servicio o aislar TPV/frontales.
-- [ ] Mostrar `executed_actions` en el ticket y el `containment_log`. *Backend hecho (`registrar_en_ticket`, `SocClient.registro_contencion`); `executed_actions` ya se ve en la web, el `containment_log` completo está en `GET /api/registro` pero aún sin pantalla.*
+- [x] Mostrar `executed_actions` en el ticket y el `containment_log`. *`executed_actions` en la tarjeta de cada acción y el registro completo en `#/registro` (enlace «Registro de contención» en la cabecera; comprobado con el registro vacío y con la API del SOC caída).*
 
 ### Fase 6: Nivel 3, investigación (solo si N1/N2 están sólidos) — A
 - [ ] Para los tickets escalados, generar informe según `informe_incidente.schema.json`: paciente cero, acceso inicial, timeline con IDs de evento y MITRE, alcance, causa raíz, plan de contención, notificaciones (DPO/AEPD 72 h, PCI, proveedor), huecos de detección.

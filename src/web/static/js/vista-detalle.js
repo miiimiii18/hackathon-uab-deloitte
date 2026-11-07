@@ -1,7 +1,9 @@
 import { api } from "./api.js";
 import { anilloConfianza, h, icono } from "./dom.js";
 import { estado, refrescarResultado, suscribir, triarFilas } from "./estado.js";
-import { aviso, cortar, DECISION, descargar, hora, siNo } from "./util.js";
+import { aviso, cortar, DECISION, descargar, hora, SEVERIDADES, siNo } from "./util.js";
+
+const VEREDICTOS = ["true_positive", "benign_true_positive", "false_positive", "needs_more_info"];
 
 const esObjeto = (v) => v && typeof v === "object" && !Array.isArray(v);
 const kv = (clave, valor) => h("div", { class: "kv" }, h("span", {}, clave), h("span", {}, valor));
@@ -182,6 +184,35 @@ function grupoAtaque(id) {
     h("button", { class: "btn sm", type: "button", onClick: () => descargar(`${t.ticket_id}.json`, t) }, "Ticket único JSON"));
 }
 
+// --- Quién decide qué (siempre a la vista) -------------------------------------------------
+
+function reparto(r) {
+  const ia = r.llm?.analisis;
+  const p = r.politica;
+  const humano = r.humano || [];
+  const cerrada = humano.find((d) => d.tipo === "cerrar");
+  const aN2 = humano.find((d) => d.tipo === "escalar_n2");
+  const correccion = [...humano].reverse().find((d) => d.tipo === "corregir");
+  const corregido = p && p.veredicto_llm && p.veredicto_llm !== p.veredicto;
+  const tarjeta = (clase, chipTexto, ...lineas) => h("div", { class: clase }, chip(chipTexto, `c-${clase}`), ...lineas);
+  let persona;
+  if (correccion) persona = [h("b", {}, `Corrigió: ${correccion.veredicto}${correccion.severidad ? ` · ${correccion.severidad}` : ""}`), h("small", {}, `${correccion.por}: ${cortar(correccion.motivo, 90)}`)];
+  else if (cerrada || aN2) persona = [h("b", {}, cerrada ? "Cierre confirmado" : "Pasada a N2"), h("small", {}, (cerrada ?? aN2).por)];
+  else persona = [h("b", {}, p?.decision === "cerrar" ? "Pendiente: confirmar el cierre" : "Pendiente de decidir"), h("small", {}, "Aprueba o rechaza acciones, pasa a N2, cierra o corrige el veredicto")];
+  return h("section", { class: "reparto entra", "aria-label": "Quién decide qué" },
+    tarjeta("ia", "IA propone", h("b", { class: "m" }, ia ? `${ia.verdict} · confianza ${Number(ia.confidence).toFixed(2)}` : "Sin análisis"), h("small", {}, "Veredicto, argumentos y acciones sugeridas. No ejecuta nada.")),
+    tarjeta("co", "Código decide", h("b", { class: "m" }, p ? `${p.veredicto}${corregido ? " (corrige a la IA)" : ""} · ${p.severidad_final} · ${DECISION[p.decision] ?? p.decision}` : "—"), h("small", {}, "Severidad, escalado y permisos de contención, con reglas fijas.")),
+    tarjeta("pe", "Persona decide", ...persona));
+}
+
+function alertaOriginal(id, r) {
+  const cuerpo = h("div", {}, h("p", { class: "nota" }, "Cargando…"));
+  const pintar = (a) => cuerpo.replaceChildren(h("pre", { class: "json" }, JSON.stringify(a, null, 2)));
+  if (r.alerta) pintar(r.alerta);
+  else api.original(id).then(pintar).catch((e) => cuerpo.replaceChildren(h("p", { class: "nota" }, `No se pudo cargar la alerta: ${e.message}`)));
+  return panel("", "co", "Alerta original", "tal como llegó", cuerpo);
+}
+
 // --- Lo que decide la persona --------------------------------------------------------------
 
 function botonMantener(texto, alCompletar, deshabilitado) {
@@ -258,6 +289,27 @@ function tarjetaAccion(r, a, indice, recargar) {
   return tarjeta;
 }
 
+function formularioCorregir(r, recargar) {
+  const p = r.politica;
+  if (!p) return null;
+  const opcion = (valor, texto, elegido) => h("option", { value: valor, selected: elegido }, texto ?? valor);
+  const veredicto = h("select", { "aria-label": "Veredicto correcto" }, ...VEREDICTOS.map((v) => opcion(v, v, v === p.veredicto)));
+  const severidad = h("select", { "aria-label": "Severidad correcta" }, opcion("", "Severidad: sin cambios", true), ...SEVERIDADES.slice().reverse().map((s) => opcion(s)));
+  const motivo = h("input", { type: "text", placeholder: "Por qué lo corriges", "aria-label": "Motivo de la corrección", autocomplete: "off" });
+  const por = h("input", { type: "text", placeholder: "Tu nombre y rol", "aria-label": "Tu nombre", autocomplete: "off" });
+  const enviar = async () => {
+    try {
+      await api.decidir(r.alert_id, { tipo: "corregir", por: por.value, motivo: motivo.value, veredicto: veredicto.value, severidad: severidad.value });
+      aviso("Corrección anotada", "ok");
+      recargar();
+    } catch (e) { aviso(e.message); }
+  };
+  return h("details", {}, h("summary", {}, "No estoy de acuerdo: corregir el veredicto"),
+    h("div", { class: "corregir" }, veredicto, severidad, motivo, por,
+      h("button", { class: "btn sm", type: "button", onClick: enviar }, "Registrar corrección"),
+      h("p", { class: "nota" }, "Queda anotada con tu nombre. No cambia lo que calculó el código ni ejecuta nada.")));
+}
+
 function persona(r, recargar) {
   const t = r.ticket;
   if (!t) return panel("pe", "pe", "Tu decisión", null, h("p", { class: "nota" }, "Sin ticket: no hay nada que decidir."));
@@ -279,9 +331,11 @@ function persona(r, recargar) {
           decision === "cerrar" ? h("button", { class: "btn go sm", type: "button", onClick: decidir("cerrar") }, "Confirmar cierre")
             : h("button", { class: "btn go sm", type: "button", onClick: decidir("escalar_n2") }, "Pasar a N2"),
           decision === "cerrar" ? h("button", { class: "btn sm", type: "button", onClick: decidir("escalar_n2") }, "Escalar a N2") : null)]);
+  const corregir = formularioCorregir(r, recargar);
   return panel("pe", "pe", "Tu decisión", null,
     ...(contencion.length ? contencion.map(([a, i]) => tarjetaAccion(r, a, i, recargar)) : [h("p", { class: "nota" }, "La política no propone contención para esta alerta.")]),
     flujo,
+    corregir,
     h("p", { class: "nota" }, "En la red OT no se actúa: solo se escala. La contención es simulada y queda registrada con el nombre de quien aprueba."),
     h("div", { class: "fila-btn" },
       h("button", { class: "btn sm", type: "button", onClick: () => descargar(`${t.ticket_id}.json`, t) }, "Ticket JSON"),
@@ -314,9 +368,9 @@ export function montarDetalle(raiz, id) {
     const pendiente = (r.politica?.decision === "escalar" || r.politica?.decision === "revisar")
       && !(r.humano || []).some((d) => d.tipo === "cerrar" || d.tipo === "escalar_n2");
     const recargar = async () => { await refrescarResultado(id); cargar(); };
-    raiz.replaceChildren(volver(), cabecera(r, meta), pasos(pendiente),
+    raiz.replaceChildren(volver(), cabecera(r, meta), pasos(pendiente), reparto(r),
       h("div", { class: "rejilla" },
-        h("div", { class: "col-izq" }, consultas(r), base(r), propuestaIA(r)),
+        h("div", { class: "col-izq" }, consultas(r), base(r), propuestaIA(r), alertaOriginal(id, r)),
         h("aside", { class: "col-der" }, grupoAtaque(id), politica(r), persona(r, recargar))));
   };
 
