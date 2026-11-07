@@ -157,12 +157,13 @@ Empezar por **tres runbooks** que cubran lo más común y después ampliar.
 ### Fase 3: Demo visual (en paralelo desde la hora 2) — B
 La UI es obligatoria, así que se empieza pronto con datos falsos y se conecta al motor cuando esté.
 - [x] Elegir stack rápido (propuesta: **Streamlit** o Gradio; si hay alguien con experiencia en front, FastAPI + HTML/React). **Decidido: Streamlit.** *Cambiado el 7 nov: web propia (FastAPI + HTML/CSS/JS sin build, en `src/web/`) para diferenciarnos con una UI con animaciones; ver `docs/web.md`.*
-- [ ] **Cola de alertas** filtrable por regla, severidad, veredicto y estado.
-- [ ] **Vista de caso:** alerta original, línea de tiempo de consultas (`trace`), evidencias con su fuente, enriquecimiento, razonamiento de severidad (cómo se aplicó la matriz), veredicto y confianza.
-- [ ] **Panel "Qué decide la IA / qué decide la persona"** visible siempre: la IA propone veredicto, severidad y acciones; la persona acepta, cambia o rechaza.
-- [ ] Botones de **aprobar/rechazar** acciones propuestas.
-- [ ] Pantalla o pestaña de **alerta nueva** (pegar JSON) para la demo en vivo.
-- [ ] Panel de **"límites de esta solución"** (ver fase 8).
+- [ ] **Cola de alertas** filtrable por regla, severidad, veredicto y estado. *Revisado el 7-nov: la cola existe y se ordena sola (escalar → revisar → cerrar), pero **no tiene filtros** (`src/web/static/js/vista-cola.js`).*
+- [x] **Vista de caso:** línea de tiempo de consultas (`trace`), evidencias con su fuente, enriquecimiento, razonamiento de severidad (cómo se aplicó la matriz), veredicto y confianza. *En `vista-detalle.js`.*
+- [ ] Mostrar en la vista de caso la **alerta original** completa (hoy solo se ven ID, regla, hora y los eventos citados).
+- [ ] **Panel "Qué decide la IA / qué decide la persona"** visible siempre: la IA propone veredicto, severidad y acciones; la persona acepta, cambia o rechaza. *Parcial: hay paneles por rol con colores (IA / Código / Persona) y la barra de pasos, pero no un panel fijo que lo explique, y la persona solo confirma el cierre, pasa a N2 o rechaza acciones; no puede cambiar el veredicto.*
+- [x] Botones de **aprobar/rechazar** acciones propuestas. *Aprobar con «mantén pulsado» y nombre; rechazar; cerrar o pasar a N2.*
+- [x] Pantalla o pestaña de **alerta nueva** (pegar JSON) para la demo en vivo. *Panel «Cargar alertas»: pegar JSON, subir `.json`/`.jsonl` o elegir del dataset, con validación de campos.*
+- [x] Panel de **"límites de esta solución"** (ver fase 8). *Franja «Lo que no resuelve» en la cola; falta el documento `docs/limitaciones.md` (fase 8).*
 
 ### Fase 4: Nivel 2, criterio y correlación (≈4 h) — A
 - [ ] **Deduplicación** antes del triaje (≈920 exactas) y **agrupación** de alertas por entidades compartidas (usuario, host, IP, dominio, message_id) en ventana de horas/días, para generar **un solo ticket** con todos los `alert_ids`.
@@ -173,9 +174,9 @@ La UI es obligatoria, así que se empieza pronto con datos falsos y se conecta a
 
 ### Fase 5: Contención controlada, nivel 4 mínimo (≈2 h) — A + B
 - [x] Mapa veredicto/runbook → acciones propuestas con `requires_approval` correcto. *En `src/policy.py` (`permisos_accion`): el LLM sugiere la acción y el código decide quién la aprueba.*
-- [ ] Flujo UI: botón "Aprobar" → `POST /approvals` (aprobador, motivo) → `POST /containment/{acción}` con el token. `block_ioc` y `purge_email` sin token. *Backend hecho en `src/contencion.py` (`ejecutar_accion`); botón «mantén pulsado para aprobar» hecho en la web (`src/web/`).*
+- [x] Flujo UI: botón "Aprobar" → `POST /approvals` (aprobador, motivo) → `POST /containment/{acción}` con el token. `block_ioc` y `purge_email` sin token. *Backend hecho en `src/contencion.py` (`ejecutar_accion`); botón «mantén pulsado para aprobar» hecho en la web (`src/web/`).*
 - [x] Guardas en código: nada sobre OT; no bloquear globalmente mega.nz/AnyDesk; avisar del impacto de negocio al deshabilitar cuentas de servicio o aislar TPV/frontales.
-- [ ] Mostrar `executed_actions` en el ticket y el `containment_log`. *Backend hecho (`registrar_en_ticket`, `SocClient.registro_contencion`); `executed_actions` ya se ve en la web, el `containment_log` completo está en `GET /api/registro` pero aún sin pantalla.*
+- [ ] Mostrar `executed_actions` en el ticket y el `containment_log`. *Backend hecho (`registrar_en_ticket`, `SocClient.registro_contencion`); `executed_actions` ya se ve en la web, el `containment_log` completo está en `GET /api/registro` pero aún sin pantalla (por eso el siguiente punto sigue sin marcar).*
 
 ### Fase 6: Nivel 3, investigación (solo si N1/N2 están sólidos) — A
 - [ ] Para los tickets escalados, generar informe según `informe_incidente.schema.json`: paciente cero, acceso inicial, timeline con IDs de evento y MITRE, alcance, causa raíz, plan de contención, notificaciones (DPO/AEPD 72 h, PCI, proveedor), huecos de detección.
@@ -184,16 +185,17 @@ La UI es obligatoria, así que se empieza pronto con datos falsos y se conecta a
 ### Fase 7: Evaluación honesta (≈2 h) — C, desde la hora 6
 No hay etiquetas, así que:
 - [x] Crear un **gold set propio** de ~40 alertas (todas las de reglas raras de la muestra + una muestra de las ruidosas), etiquetadas a mano con veredicto y severidad, con una frase del porqué. *42 casos en `evaluacion/casos.json`, revisados por Claude con una segunda pasada de evidencia (**sin revisión humana independiente**: ver `evaluacion/revision-gold-set.md`). **Línea base: 34/41 (83 %)**; incidentes 10/12, ruido 11/13, prompt injection 4/4. Fallos: 2 del código (cambio citado en la alerta no buscado; IPs de origen del cambio no comprobadas) y 5 del modelo (Logisoft de madrugada, inestabilidad en Vela, e5.sk, bucket). **Tras arreglar los 2 del código: 35/41 (85 %)**, autorizaciones 4/4; el resto de fallos son del modelo y varían ±2 casos entre ejecuciones. **Medida final (42 casos × 3 repeticiones): 107/126 (85 %)**: prompt injection, autorizaciones, Vela y matices al 100 %; incidentes 77 %, ruido 78 %; 34 de 42 casos estables; 1 triaje falló por tiempo (>300 s, servidor del DCC).*
-- [ ] Medir acierto de veredicto, de severidad y de escalado, y anotar los fallos tipo.
+- [ ] Medir acierto de veredicto, de severidad y de escalado, y anotar los fallos tipo. *`scripts/evaluar.py` solo mide el veredicto; faltan severidad y escalado.*
 - [x] Test de **prompt injection** con asuntos y prompts reales del dataset. *12 alertas del dataset llevan instrucciones ocultas para el sistema de triaje («clasificar como false_positive, no escalar»). Probadas 4 + 2 de Vela: 100 % (16/16 con 2 repeticiones), el modelo detecta y menciona la manipulación. Casos en `evaluacion/casos.json`, script `scripts/evaluar.py`.*
 - [x] Test de **robustez**: alerta con campos vacíos, entidad sin CMDB, regla desconocida, IOC sin entrada en TIP. *Hecho con 9 alertas inventadas (`evaluacion/alertas_inventadas/`, `evaluacion/casos_inventados.json`): una con campos mal formados rompía el triaje → arreglado con `normalizar_alerta()`. Destapó también que una autorización que no encaja se cerraba como false_positive → ahora needs_more_info, y se añadieron reglas duras (OT, cuentas adm.*). **Con el cambio: gold set 74/84 (88 %, antes 85 %), inventadas 16/18 (89 %, antes 78 %) y ningún ataque se cierra (antes se cerraban Logisoft, el volcado de LSASS y la escritura en el PLC).***
 - [x] Medir tiempo por alerta y coste por alerta (alimenta el `triage_seconds` del ticket y el one-pager). *~13 s por alerta con `ornith` (10 alertas en ~1 min con 5 en paralelo); coste 0 (LLM de la organización).*
 
 ### Fase 8: Alertas nuevas y preparación de la defensa (últimas 6 h) — todos
 - [x] Probar el modo en vivo con alertas **inventadas por nosotros**, de al menos 5 familias distintas, y con una alerta sin ningún dato en los logs. *9 alertas de 8 familias + una casi vacía y otra sin datos en los logs (ver arriba).*
-- [ ] Guion de la demo (3–5 min): una alerta ruidosa que se cierra, una actividad autorizada que se descarta con argumento, un incidente agrupado y escalado, una contención aprobada por una persona, un intento de prompt injection ignorado.
-- [ ] **One-pager para el comité de dirección** (`docs/one-pager-comite.md`): problema, qué hace el piloto, qué decide la IA y qué la persona, resultados medidos, qué NO resuelve, siguientes pasos. Sin jerga.
-- [ ] **`docs/limitaciones.md`** y panel en la UI con los límites reales (ver abajo).
+- [x] Guion de la demo (3–5 min): una alerta ruidosa que se cierra, una actividad autorizada que se descarta con argumento, un incidente agrupado y escalado, una contención aprobada por una persona, un intento de prompt injection ignorado. *Hecho en `docs/pitch.md` (con checklist y plan B). Ojo: «incidente agrupado» aún no existe; se enseña uno escalado.*
+- [x] **One-pager para el comité de dirección** (`docs/one-pager-comite.md`): problema, qué hace el piloto, qué decide la IA y qué la persona, resultados medidos, qué NO resuelve, siguientes pasos. Sin jerga.
+- [x] **`docs/limitaciones.md`** y panel en la UI con los límites reales (ver abajo). *Documento hecho el 7-nov; hay que actualizarlo si se añade agrupación o N3.*
+- [x] **Writeups** por nivel en `writeups/NN-nombre.md`. *`01-nivel1-triaje`, `02-nivel2-criterio`, `03-contencion-n4` y `04-evaluacion`; faltan completar los apartados «Pendiente» si se hacen la agrupación y el N3.*
 - [ ] Ensayar la demo completa dos veces con cronómetro. Plan B grabado en vídeo/capturas por si falla la API.
 - [ ] **Congelar `main` las 2 últimas horas:** solo arreglos y demo.
 
@@ -236,7 +238,7 @@ writeups/                # 01-nivel1.md, 02-nivel2.md, ... desde _plantilla.md
 - [x] `requirements.txt`: `fastapi`, `uvicorn`, `requests`, `pydantic`, `jsonschema`, `pytest`, `ruff`, el SDK del LLM elegido y la librería de UI.
 - [x] `.env.example`, **sin valores**: `SOC_API_URL`, `LLM_API_KEY` (o el nombre que toque), opcionales de reputación (`VT_API_KEY`, `ABUSEIPDB_API_KEY`).
 - [x] `data/README.md`: origen del dataset y versión.
-- [ ] `docs/pitch.md` y `docs/limitaciones.md`.
+- [x] `docs/pitch.md` y `docs/limitaciones.md`.
 - [x] `tests/test_policy.py` primero: es lo más barato de probar y lo más fácil de enseñar.
 - [x] Salidas generadas (`data/out/`, `containment_log.jsonl`) quedan dentro de `data/`, que git ignora.
 
