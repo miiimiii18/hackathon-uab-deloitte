@@ -123,7 +123,7 @@ Acordados en el plan de trabajo (sección 4). Cualquier código nuevo debe respe
 - **Tres estados de enriquecimiento:** `malicious`, `clean` y `unknown`. Un dato ausente o desconocido nunca cuenta como limpio.
 - **No cargar logs enteros en el contexto del LLM**, solo los eventos filtrados por entidad y ventana de tiempo (±24 h).
 - **La política ya está en código: `src/policy.py`** (con `tests/test_policy.py`). Después del LLM, `aplicar_politica()`:
-  1. **Verifica el veredicto**: `benign_true_positive` solo si cita un cambio `CHG-...` que esté en la evidencia o una regla interna de Tarvia (pentest, NESSUS01, nóminas a la gestoría, ext.logisoft...). Si no, lo pasa a `false_positive` y deja un aviso.
+  1. **Verifica el veredicto**: `benign_true_positive` solo si cita un cambio o flujo del calendario (`CHG-...`, `FLUJO-...`) que esté en la evidencia **y cuya ventana de fechas cubra la hora de la alerta** (el pentest es `CHG-2026-1042`, 8–10 oct; las nóminas, `FLUJO-0007`...), o una regla interna sin entrada en el calendario que se cumpla a esa hora (`svc_backup`, TeamViewer, `ext.logisoft` L–V 8–18 h). Citar algo de palabra no basta: el texto puede venir del atacante. Si no se verifica, pasa a `false_positive` y deja un aviso con el motivo.
   2. **Severidad final**: matriz (regla × criticidad del activo más crítico de la CMDB; sin activo, la del servicio: WAF/ECOM → Crítica, AI_GATEWAY → Alta; si no, Media) y ajuste de ±1 como máximo, solo para `true_positive` y `needs_more_info`. VIP/privilegiado se toma del directorio, no del LLM. Falso positivo → `informational`; autorizado → `informational` o `low`.
   3. **Decisión**: `escalar` (motivos obligatorios de la sección 5: TP high/critical, ejecución confirmada, datos personales o pagos, fraude UC-EML-004/UC-WEB-003), `revisar` (`needs_more_info`) o `cerrar`, con su SLA.
   4. **Contención**: quién aprueba cada acción sugerida (N1, N2, N2 + negocio, N2 + responsable del servicio) y la prohíbe en OT. Si el veredicto no es TP ni `needs_more_info`, las acciones se descartan.
@@ -164,6 +164,9 @@ python -m src.triaje ALR-20261005-000301 --solo-evidencia  # sin LLM
 
 # Varias alertas EN PARALELO (por defecto 4 a la vez; máximo 8, el servidor es compartido)
 python -m src.triaje ALR-1 ALR-2 ALR-3 --paralelo 5 --salida data/out/lote
+
+# Evaluar contra casos etiquetados a mano (evaluacion/casos.json); --repeticiones mide la estabilidad
+python -m scripts.evaluar --repeticiones 2
 ```
 
 Medido con 10 alertas: una detrás de otra, 195 s; con 5 en paralelo, 58 s (3,4× más rápido, mismos veredictos). Para la UI: `triar_en_paralelo()` devuelve cada alerta en cuanto termina (para ir llenando la cola) y `triar_lote()` las devuelve todas en orden. Cada alerta usa su propio `SocClient` y un fallo en una no para las demás (`{"error": ...}`).
