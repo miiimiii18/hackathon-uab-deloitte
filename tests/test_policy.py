@@ -211,3 +211,36 @@ def test_permisos_de_contencion(accion, target, activos, aprobador, permitida):
     a = permisos_accion(accion, target, "porque sí", {"activos": activos})
     assert a.aprobador == aprobador and a.permitida is permitida
     assert a.requires_approval is (aprobador != "—")
+
+
+# --- IPs de origen que permite un cambio ---------------------------------------------------
+
+PENTEST_CON_IPS = {**PENTEST, "detalle": "IPs origen 192.0.2.10-12; alcance www.tarvia.example y api; sin DoS"}
+
+
+def test_ips_autorizadas_entiende_rangos():
+    from src.policy import ips_autorizadas
+    assert ips_autorizadas(PENTEST_CON_IPS) == {"192.0.2.10", "192.0.2.11", "192.0.2.12"}
+    assert ips_autorizadas({"detalle": "Origen NESSUS01 (svc_scanner)"}) == set()
+
+
+def test_pentest_desde_su_ip_vale():
+    ev = {"cambios_aprobados": [PENTEST_CON_IPS]}
+    autorizacion, _ = verificar_autorizacion("CHG-2026-1042", ev, "2026-10-08T06:59:14.000Z", ["192.0.2.11"])
+    assert autorizacion.startswith("CHG-2026-1042")
+
+
+def test_pentest_en_sus_fechas_pero_desde_otra_ip_no_vale():
+    # Trampa real del dataset: escaneo el 8 de octubre desde una IP que no es del pentest.
+    ev = {"cambios_aprobados": [PENTEST_CON_IPS]}
+    autorizacion, rechazo = verificar_autorizacion("CHG-2026-1042", ev, "2026-10-08T10:43:00.000Z", ["198.18.46.60"])
+    assert autorizacion == "" and "198.18.46.60" in rechazo and "192.0.2.10" in rechazo
+
+
+def test_la_politica_usa_las_ips_de_la_alerta():
+    ev = {"cambios_aprobados": [PENTEST_CON_IPS]}
+    a = analisis("benign_true_positive", referencia_autorizacion="CHG-2026-1042")
+    escaneo = {**alerta("low", "WAF", "UC-WEB-001"), "created_at": "2026-10-08T10:43:00.000Z",
+               "entities": {"ips": ["198.18.46.60"]}}
+    d = aplicar_politica(escaneo, ev, a)
+    assert d.veredicto == "false_positive" and "solo autoriza el origen" in " ".join(d.avisos)

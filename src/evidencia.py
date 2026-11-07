@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import ipaddress
 import json
+import re
 from typing import Any
 from urllib.parse import urlparse
 
@@ -50,6 +51,16 @@ MAX_CARACTERES = 14_000
 REDES_INTERNAS = [ipaddress.ip_network(r) for r in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "127.0.0.0/8")]
 
 NOTA_DESCONOCIDO = "DESCONOCIDO: no aparece en {donde}. Es un dato, no un error (p. ej., equipo no gestionado o externo)."
+
+
+# IDs del calendario de cambios: cambios (CHG-2026-1042) y flujos aprobados (FLUJO-0007).
+PATRON_CAMBIO = re.compile(r"\b(?:CHG|FLUJO)-\d+(?:-\d+)?\b", re.IGNORECASE)
+
+
+def cambios_citados(alerta: dict[str, Any]) -> list[str]:
+    """IDs de cambios o flujos que aparecen en cualquier campo de la alerta."""
+    texto = json.dumps(alerta, ensure_ascii=False)
+    return _unicos([i.upper() for i in PATRON_CAMBIO.findall(texto)])
 
 
 def es_ip(texto: str) -> bool:
@@ -183,6 +194,12 @@ def reunir_evidencia(alerta: dict[str, Any], cliente: SocClient) -> dict[str, An
     for termino in [upn.split("@")[0] for upn in e["usuarios"]] + e["hosts"] + e["ips"] + e["dominios"]:
         for c in cliente.cambios(termino):
             cambios[c.get("id", str(c))] = compactar(c)
+    # Y los cambios que cita la propia alerta (p. ej., "change_ticket": "CHG-2026-1078"),
+    # para poder comprobar si existen, qué cubren y si sus fechas encajan.
+    for ident in cambios_citados(alerta):
+        for c in cliente.cambios(ident):
+            if str(c.get("id", "")).upper() == ident:
+                cambios[ident] = compactar(c)
     ev["cambios_aprobados"] = list(cambios.values())
 
     # 4. Eventos que cita la alerta.

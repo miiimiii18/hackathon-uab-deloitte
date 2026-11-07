@@ -18,6 +18,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel
 
+from src.evidencia import PATRON_CAMBIO
 from src.llm import AnalisisLLM
 from src.soc_client import a_fecha
 
@@ -57,7 +58,9 @@ REGLAS_FRAUDE = {"UC-EML-004", "UC-WEB-003"}
 # de cambios que aparezca en la evidencia y cuya ventana de fechas cubra la alerta: así
 # se verifican el pentest (CHG-2026-1042), los escaneos de NESSUS01, las nóminas a la
 # gestoría (FLUJO-0007)... con DATOS, no con palabras que un atacante podría escribir.
-PATRON_CAMBIO = re.compile(r"\b(?:CHG|FLUJO)-\d+(?:-\d+)?\b", re.IGNORECASE)
+# (El patrón de los IDs, PATRON_CAMBIO, está en src/evidencia.py y se importa arriba.)
+# IPs o rangos que un cambio permite como origen, p. ej. «IPs origen 192.0.2.10-12».
+PATRON_IPS = re.compile(r"\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.)(\d{1,3})(?:\s*-\s*(\d{1,3}))?\b")
 # Horas del calendario: hora de España sin zona; en el periodo del dataset, UTC+2.
 DESFASE_ESPANA = timedelta(hours=2)
 TOLERANCIA = timedelta(hours=1)
@@ -148,11 +151,27 @@ def _fecha_calendario(texto: str) -> datetime | None:
         return None
 
 
-def verificar_autorizacion(referencia: str, evidencia: dict[str, Any], momento: str = "") -> tuple[str, str]:
+def ips_autorizadas(cambio: dict[str, Any]) -> set[str]:
+    """IPs de origen que permite un cambio según su texto («IPs origen 192.0.2.10-12»).
+
+    Vacío = el cambio no restringe el origen por IP.
+    """
+    texto = f"{cambio.get('detalle', '')} {cambio.get('alcance', '')}"
+    ips: set[str] = set()
+    for prefijo, desde, hasta in PATRON_IPS.findall(texto):
+        for ultimo in range(int(desde), int(hasta or desde) + 1):
+            ips.add(f"{prefijo}{ultimo}")
+    return ips
+
+
+def verificar_autorizacion(
+    referencia: str, evidencia: dict[str, Any], momento: str = "", ips_alerta: list[str] | None = None
+) -> tuple[str, str]:
     """Comprueba la autorización que cita el LLM. Devuelve (autorización, motivo_de_rechazo).
 
-    Vale un CHG-/FLUJO- que esté en los cambios de la evidencia Y cuya ventana de fechas
-    cubra la hora de la alerta, o una regla interna de Tarvia que se cumpla a esa hora.
+    Vale un CHG-/FLUJO- que esté en los cambios de la evidencia, cuya ventana de fechas
+    cubra la hora de la alerta y, si el cambio limita las IPs de origen, cuyo origen
+    coincida con el de la alerta. O una regla interna de Tarvia que se cumpla a esa hora.
     El texto que pone el LLM puede venir del atacante, así que nunca basta con citarlo.
     """
     hora = a_fecha(momento)
@@ -164,11 +183,17 @@ def verificar_autorizacion(referencia: str, evidencia: dict[str, Any], momento: 
             rechazos.append(f"{ident} no aparece en el calendario de cambios consultado")
             continue
         inicio, fin = _fecha_calendario(cambio.get("inicio", "")), _fecha_calendario(cambio.get("fin", ""))
-        if hora is None or inicio is None or fin is None:
-            return f"{ident}: {cambio.get('titulo', '')} (fechas sin comprobar)", ""
-        if inicio - TOLERANCIA <= hora <= fin + TOLERANCIA:
-            return f"{ident}: {cambio.get('titulo', '')} ({cambio.get('inicio')} – {cambio.get('fin')})", ""
-        rechazos.append(f"{ident} es del {cambio.get('inicio')} al {cambio.get('fin')} y la alerta es de otro momento")
+        fechas_ok = hora is None or inicio is None or fin is None or inicio - TOLERANCIA <= hora <= fin + TOLERANCIA
+        if not fechas_ok:
+            rechazos.append(f"{ident} es del {cambio.get('inicio')} al {cambio.get('fin')} y la alerta es de otro momento")
+            continue
+        permitidas = ips_autorizadas(cambio)
+        if permitidas and not permitidas & set(ips_alerta or []):
+            origen = ", ".join(ips_alerta or []) or "una IP desconocida"
+            rechazos.append(f"{ident} solo autoriza el origen {', '.join(sorted(permitidas))} y la alerta viene de {origen}")
+            continue
+        fechas = "fechas sin comprobar" if hora is None or inicio is None or fin is None else f"{cambio.get('inicio')} – {cambio.get('fin')}"
+        return f"{ident}: {cambio.get('titulo', '')} ({fechas})", ""
     texto = _sin_acentos(referencia or "")
     for clave, (descripcion, se_cumple) in REGLAS_INTERNAS.items():
         if clave in texto:
@@ -258,8 +283,10 @@ def aplicar_politica(alerta: dict[str, Any], evidencia: dict[str, Any], analisis
 
     # 1. Veredicto: benign_true_positive solo con autorización verificable.
     veredicto = analisis.verdict
+    entidades = alerta.get("entities") or {}
+    ips_alerta = list(entidades.get("ips", [])) + [h.get("ip", "") for h in entidades.get("hosts", []) if h.get("ip")]
     autorizacion, rechazo = verificar_autorizacion(
-        senales.referencia_autorizacion, evidencia, alerta.get("created_at", "")
+        senales.referencia_autorizacion, evidencia, alerta.get("created_at", ""), ips_alerta
     )
     if veredicto == "benign_true_positive" and not autorizacion:
         veredicto = "false_positive"
