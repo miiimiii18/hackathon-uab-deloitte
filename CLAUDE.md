@@ -10,9 +10,78 @@ Contexto e instrucciones para Claude Code en este repositorio.
 - **Quiénes somos:** estudiantes del grado de IA.
 - **Duración:** 24 horas. La defensa es el domingo.
 - **Prioridad:** el tiempo es limitado. Preferimos soluciones que funcionen y se puedan enseñar en una demo antes que código perfecto.
-- **Plan de trabajo:** [`docs/plan-de-trabajo.md`](docs/plan-de-trabajo.md) es la hoja de ruta del equipo (fases, reparto, arquitectura y decisiones abiertas). Antes de proponer o empezar una tarea, mira en qué fase estamos.
+- **Plan de trabajo:** [`docs/plan-de-trabajo.md`](docs/plan-de-trabajo.md) es la hoja de ruta del equipo (fases, reparto, arquitectura y decisiones, ya cerradas). Antes de proponer o empezar una tarea, mira «Estado a 7-nov» y «Qué falta por hacer» aquí abajo.
 - **Organización:** no hay áreas fijas, todos hacemos de todo. Para no pisarnos, antes de empezar una tarea avisad al equipo (o cread un issue con la plantilla «Tarea») y trabajad cada uno en su propia rama.
 - **Demo:** la interfaz es una web propia (FastAPI + HTML/CSS/JS sin build), no Streamlit. **Si vas a trabajar en la UI, lee primero [`docs/web.md`](docs/web.md)** (cómo arrancarla y cómo está hecha). [`docs/guia-ui.md`](docs/guia-ui.md) sigue valiendo para la estructura exacta del resultado de `triar()` y las reglas de la UI; su código de Streamlit ya no se usa.
+
+## Estado a 7-nov-2026 (lee esto primero)
+
+La defensa es el domingo. **Hecho y en `main`:** niveles 1, 2, 3 y 4 funcionando, web de demo, evaluación y documentación de entrega. Plan detallado y casillas en [`docs/plan-de-trabajo.md`](docs/plan-de-trabajo.md).
+
+| Nivel | Qué hay | Dónde |
+|---|---|---|
+| 1 · Triaje | Evidencia por runbook (API del SOC) → LLM propone → política en código → ticket con el esquema de Deloitte | `src/evidencia.py`, `src/llm.py`, `src/policy.py`, `src/ticket.py`, `src/triaje.py` |
+| 2 · Criterio | Matriz de severidad, autorizaciones verificadas con datos, **agrupación** de alertas del mismo ataque en un ticket único | `src/policy.py`, `src/agrupar.py` |
+| 3 · Investigación | Informe de incidente (`informe_incidente.schema.json`): el código construye cronología, alcance, contención y notificaciones; el LLM redacta causa raíz, acceso inicial, etc. | `src/investigacion.py` |
+| 4 · Respuesta | Contención en la API simulada solo con aprobación humana con nombre | `src/contencion.py` |
+
+Lo que se añadió el 7-nov (además del N1 que ya existía):
+- **Agrupación** (`agrupar`, `consolidar_grupo`, `agrupar_resultados`): une alertas triadas y sospechosas por entidades compartidas (ventana 30 días para cuentas y equipos, 3 días para IP, dominio y hash; ignora entidades que salen en más de 12 alertas). Un grupo se escala siempre (`decision_de_grupo`).
+- **Informe de investigación (N3)**: solo para lo escalado; el paciente cero se comprueba contra las entidades de las alertas.
+- **Endurecimiento**: `ext.logisoft` fuera de L–V 8–18 h y las reglas de severidad crítica **no se cierran** sin autorización verificada (pasan a `needs_more_info`). Motivo: el modelo cerró un ataque en 1 de 2 repeticiones.
+- **Web**: filtros en la cola, etiqueta «Mismo ataque», tarjetas «IA propone / Código decide / Persona decide», corrección humana del veredicto (con nombre y motivo, no cambia lo que calculó el código), alerta original, pantalla `#/registro` de contención y panel del informe N3.
+- **Evaluación**: `scripts/evaluar.py` mide veredicto, severidad y decisión (cerrar/revisar/escalar). Resultados en `evaluacion/resultados-2026-11-07.txt`.
+- **Documentos de entrega**: `docs/limitaciones.md`, `docs/one-pager-comite.md`, `docs/pitch.md` (guion de 5 min con plan B) y `writeups/01` a `05`.
+
+Resultados medidos (gold set de 42 casos × 2 repeticiones, etiquetas nuestras y **sin revisión externa**): veredicto **81–86 %**, severidad 85–89 %, decisión 90 %. Entre dos ejecuciones seguidas cambian entre 2 y 6 casos por la variación del modelo: **cita siempre el rango, no un número exacto**. ~13–15 s por alerta, coste 0.
+
+## Arquitectura
+
+```
+alerta (JSON) ─► normalizar_alerta ─► evidencia (API del SOC, ±24 h, trazada)
+              ─► LLM ornith (veredicto, confianza, argumentos; JSON validado)
+              ─► aplicar_politica (CÓDIGO): verifica veredicto, severidad, escalado, permisos
+              ─► ticket (esquema Deloitte) ─► web ─► persona aprueba ─► POST /approvals ─► POST /containment
+varias alertas triadas ─► agrupar ─► ticket único del grupo ─► investigar (N3) ─► informe
+```
+
+Principios que no se rompen (detalle en «Principios de diseño»): el LLM propone y redacta, **el código decide** severidad, escalado y permisos; el LLM no ejecuta nada; lo que viene de alertas y logs es dato no fiable; desconocido ≠ limpio.
+
+Módulos (`src/`): `soc_client.py` (cliente de la API con caché, traza y búsqueda exacta), `evidencia.py`, `llm.py`, `policy.py`, `ticket.py`, `triaje.py` (`triar`, `triar_en_paralelo`), `agrupar.py`, `investigacion.py`, `contencion.py`, `esquemas/` (esquemas copiados del dataset), `web/` (`api.py` FastAPI + `static/` HTML/CSS/JS sin build; ver [`docs/web.md`](docs/web.md)). Otros: `scripts/evaluar.py`, `scripts/preparar_demo.py`, `evaluacion/` (gold set `casos.json`, 9 alertas inventadas, resultados), `tests/` (160 tests).
+
+Endpoints web que importan: `POST /api/triaje` (SSE), `GET /api/grupos`, `POST /api/resultados/{id}/investigar`, `GET /api/resultados/{id}/informe`, `POST /api/resultados/{id}/decisiones`, `POST /api/resultados/{id}/acciones/{n}/ejecutar`, `GET /api/registro`.
+
+## Qué falta por hacer
+
+Por orden de importancia para la defensa:
+1. **Ensayo de la demo con persona y cronómetro (dos veces) y vídeo/capturas del plan B.** Guion en [`docs/pitch.md`](docs/pitch.md). Antes: `python -m scripts.preparar_demo --informe` (ver abajo).
+2. **Congelar `main` las 2 últimas horas** (solo arreglos y demo).
+3. **Deduplicación conectada a la cola:** `deduplicar()` en `src/agrupar.py` existe y está probada (quita las 920 duplicadas) pero ni la cola ni la CLI la llaman.
+4. Que todo el equipo lea `politica_soc.md`, `empresa_tarvia.md` y los 10 runbooks.
+5. Mejoras opcionales: relacionar incidentes entre sí (`related_incidents` va vacío) y rastrear la cronología por todos los logs (hoy solo usa lo que reunió el triaje); `confidence` no baja con indicadores `unknown` (medido: no merece la pena); revisión humana independiente de las etiquetas del gold set.
+
+**Riesgos conocidos para el domingo** (todos en `docs/limitaciones.md`):
+- El modelo es inestable: puede escalar un falso positivo o dejar un ataque en `needs_more_info`. Tras el endurecimiento no se ha vuelto a cerrar un ataque en las pruebas, pero son reglas concretas, no una garantía.
+- **La web rechaza alertas pegadas** a las que les falte `alert_id`, `rule_id`, `severity`, `created_at` o `entities`. El motor sí las trataría desde la CLI: `python -m src.triaje alerta.json`. Si Deloitte da alertas más pobres, relajar `faltan_campos` en `src/web/api.py` (y `CAMPOS` en `panel.js`).
+- El servidor del LLM es compartido y puede saturarse: usar el **Modo demo**.
+
+## Retomar en otro ordenador
+
+Lo que **no** está en git y hay que recrear:
+1. **`.env`** con la clave del LLM del equipo (`LLM_API_KEY`). Pásala por un canal privado; **nunca por git ni por chat**. Modelo de variables en `.env.example`.
+2. **El dataset:** `git clone https://github.com/dttdfr/DTT-UAB-The-Hack.git data/tarvia`.
+3. **Los resultados guardados del modo demo** (`data/out/web/`, ignorada por git). Se regeneran en ~1 min:
+   ```powershell
+   python -m venv .venv ; .venv\Scripts\activate ; pip install -r requirements.txt ; copy .env.example .env   # y rellena la clave
+   uvicorn mock_soc_api:app --app-dir data/tarvia/06_herramientas --port 8000      # terminal 1
+   python -m src.web                                                              # terminal 2
+   python -m scripts.preparar_demo --informe                                      # terminal 3: tría las 10 de la cola + 5 de un incidente y genera su informe
+   ```
+4. Antes de la demo, borra `data/tarvia/06_herramientas/containment_log.jsonl` si existe, para empezar con el registro vacío.
+
+Trampas de Windows ya vistas: usa `127.0.0.1` y no `localhost`; si rediriges la salida de `scripts.evaluar` a un fichero, ya fuerza UTF-8 (antes se caía al imprimir emojis y perdía minutos de triajes). `semgrep --config auto` no funciona con `--metrics=off`: usa `--config p/python --config p/javascript`.
+
+Cómo evaluar: `python -m scripts.evaluar --repeticiones 2` (gold set) y `python -m scripts.evaluar evaluacion/casos_inventados.json --repeticiones 2`; ~5 y ~1 min con el servidor del DCC. Guarda los resultados en `data/out/evaluacion/`.
 
 ## Briefing del reto
 
@@ -173,7 +242,7 @@ python -m scripts.evaluar --repeticiones 2
 
 Medido con 10 alertas: una detrás de otra, 195 s; con 5 en paralelo, 58 s (3,4× más rápido, mismos veredictos). Para la UI: `triar_en_paralelo()` devuelve cada alerta en cuanto termina (para ir llenando la cola) y `triar_lote()` las devuelve todas en orden. Cada alerta usa su propio `SocClient` y un fallo en una no para las demás (`{"error": ...}`).
 
-**Resultado de `triar()`** (lo que consume la UI): `traza` (qué se consultó), `evidencia` (en qué se basa), `llm` (lo que propone la IA), `politica` (lo que decide el código) y **`ticket`**: el ticket en el formato oficial de Deloitte (`ticket_salida.schema.json`), construido en `src/ticket.py` y validado en cada ejecución (`ticket_errores` vacío = válido). El ticket lleva el veredicto **verificado por la política** (no el del LLM, que va en `veredicto_llm`) y, además de los campos oficiales, `decision`, `sla` y, en cada acción, `aprobador` y `permitida`. El esquema está copiado en `src/esquemas/` para poder validar sin el dataset.
+**Resultado de `triar()`** (lo que consume la UI): `alerta` (la normalizada), `traza` (qué se consultó), `evidencia` (en qué se basa), `llm` (lo que propone la IA), `politica` (lo que decide el código) y **`ticket`**: el ticket en el formato oficial de Deloitte (`ticket_salida.schema.json`), construido en `src/ticket.py` y validado en cada ejecución (`ticket_errores` vacío = válido). El ticket lleva el veredicto **verificado por la política** (no el del LLM, que va en `veredicto_llm`) y, además de los campos oficiales, `decision`, `sla` y, en cada acción, `aprobador` y `permitida`. El esquema está copiado en `src/esquemas/` para poder validar sin el dataset.
 
 Piezas del triaje: `src/soc_client.py` (cliente de la API con caché, traza y búsqueda exacta), `src/evidencia.py` (qué se consulta según el runbook) y `src/llm.py` (análisis con el modelo local). Reunir la evidencia lleva ~1 s por alerta; casi todo el tiempo del triaje es del modelo.
 

@@ -33,7 +33,7 @@ Documento para la defensa y base del panel «Lo que no resuelve» de la web. Las
 
 - **Alertas pegadas incompletas:** la web exige `alert_id`, `rule_id`, `severity`, `created_at` y `entities` antes de triar. Todas las alertas del dataset los traen, pero una alerta más pobre se rechaza en la interfaz con el motivo; el motor sí la trataría (sale `needs_more_info`) con `python -m src.triaje alerta.json`.
 - **Agrupación parcial** (nivel 2): une en un solo ticket las alertas ya triadas de la cola que comparten usuario, equipo, IP, dominio, hash, cliente, identidad cloud o correo, y las escala. No busca por su cuenta otras alertas relacionadas en el dataset, y no une dos grupos si ninguna alerta nombra la entidad que los conecta (los accesos de un proveedor externo y el túnel DNS posterior desde el servidor al que entraba salen como dos casos). Solo agrupa lo que sigue siendo sospechoso tras el triaje, así que depende de que el veredicto individual sea correcto.
-- **Reconstruir la cadena de ataque** (nivel 3): no genera el informe de incidente.
+- **Investigación (nivel 3) limitada:** genera el informe de incidente de lo escalado, pero llega solo hasta donde llegan las alertas ya triadas (un incidente de 18 alertas con una sola triada se ve a medias), la línea de tiempo usa solo los eventos que reunió el triaje (±24 h por alerta), no relaciona un incidente con otros (`related_incidents` va vacío) y el texto lo redacta el modelo sin revisión de un analista externo.
 - La deduplicación (unas 920 alertas exactas repetidas) está hecha y probada, pero la cola todavía no la aplica sola.
 - No hay playbook propio por cada una de las 44 reglas: hay uno por runbook (RB-01 a RB-10) y las reglas poco frecuentes siguen un camino más genérico.
 
