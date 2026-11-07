@@ -36,6 +36,8 @@ export const api = {
   buscar: (q) => pedir(`/api/alertas?q=${encodeURIComponent(q)}&limite=60`),
   resultados: () => pedir("/api/resultados"),
   grupos: () => pedir("/api/grupos"),
+  informe: (id) => pedir(`/api/resultados/${encodeURIComponent(id)}/informe`).catch(() => null),
+  investigar: (id) => enviar(`/api/resultados/${encodeURIComponent(id)}/investigar`, {}),
   original: (id) => pedir(`/api/alertas/${encodeURIComponent(id)}/original`),
   registro: () => pedir("/api/registro"),
   resultado: (id) => pedir(`/api/resultados/${encodeURIComponent(id)}`),

@@ -33,6 +33,7 @@ from pydantic import BaseModel
 from src import llm
 from src.agrupar import agrupar_resultados
 from src.contencion import ErrorContencion, ejecutar_accion, registrar_en_ticket
+from src.investigacion import investigar
 from src.policy import SEVERIDADES
 from src.soc_client import SOC_API_URL, ErrorSOC, SocClient
 from src.triaje import MAX_PARALELO, PARALELO, cargar_alerta, triar
@@ -308,15 +309,81 @@ def _alertas_completas() -> dict[str, dict[str, Any]]:
         return _completas_cache[ruta]
 
 
-@app.get("/api/grupos")
-def grupos() -> list[dict[str, Any]]:
-    """Alertas triadas que forman parte de la misma intrusión, con su ticket único."""
+def _resultados_y_alertas() -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
+    """Los resultados triados y, de cada uno, su alerta completa (la guardada o la del dataset)."""
     _leer_disco()
     with _cerrojo:
         resultados = {i: r for i, r in _resultados.items() if "error" not in r}
     completas = _alertas_completas()
     alertas = {i: r.get("alerta") or completas[i] for i, r in resultados.items() if r.get("alerta") or i in completas}
+    return resultados, alertas
+
+
+@app.get("/api/grupos")
+def grupos() -> list[dict[str, Any]]:
+    """Alertas triadas que forman parte de la misma intrusión, con su ticket único."""
+    resultados, alertas = _resultados_y_alertas()
     return agrupar_resultados(resultados, alertas)
+
+
+# --- Nivel 3: informe de investigación -------------------------------------------------------
+
+
+def _carpeta_informes() -> Path:
+    return CARPETAS_RESULTADOS[0] / "informes"
+
+
+def _informe_guardado(alert_id: str) -> dict[str, Any] | None:
+    """El informe más reciente que incluye esta alerta, si hay alguno."""
+    carpeta = _carpeta_informes()
+    encontrados = []
+    for fichero in carpeta.glob("*.json") if carpeta.exists() else []:
+        try:
+            datos = json.loads(fichero.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if alert_id in (datos.get("informe") or {}).get("alert_ids", []):
+            encontrados.append((fichero.stat().st_mtime, datos))
+    return max(encontrados, key=lambda x: x[0])[1] if encontrados else None
+
+
+@app.get("/api/resultados/{alert_id}/informe")
+def ver_informe(alert_id: str) -> dict[str, Any]:
+    informe = _informe_guardado(alert_id)
+    if informe is None:
+        raise HTTPException(404, "Esta alerta todavía no tiene informe de investigación")
+    return informe
+
+
+@app.post("/api/resultados/{alert_id}/investigar")
+def investigar_incidente(alert_id: str) -> dict[str, Any]:
+    """Genera el informe de investigación (nivel 3) del incidente al que pertenece la alerta.
+
+    Si la alerta forma un grupo con otras, el informe es del grupo entero. Solo se investiga lo
+    que está escalado a N2: el servidor lo comprueba, no el navegador.
+    """
+    resultados, alertas = _resultados_y_alertas()
+    if alert_id not in resultados:
+        raise HTTPException(404, f"No hay resultado guardado para {alert_id}")
+    ticket = next((g["ticket"] for g in agrupar_resultados(resultados, alertas) if alert_id in g["alert_ids"]),
+                  resultados[alert_id].get("ticket") or {})
+    if (ticket.get("escalation") or {}).get("escalate") is not True:
+        raise HTTPException(409, "Solo se investigan los incidentes escalados a N2")
+    try:
+        salida = investigar(ticket, resultados, alertas, modelo=modelo_efectivo())
+    except llm.ErrorLLM as e:
+        raise HTTPException(502, str(e)) from e
+    except ValueError as e:
+        raise HTTPException(409, str(e)) from e
+    registro = {**salida, "ticket_id": ticket["ticket_id"],
+                "generado_en": datetime.now(UTC).isoformat(timespec="seconds")}
+    carpeta = _carpeta_informes()
+    carpeta.mkdir(parents=True, exist_ok=True)
+    destino = carpeta / f"{_nombre_seguro(ticket['ticket_id'])}.json"
+    temporal = destino.with_suffix(".tmp")
+    temporal.write_text(json.dumps(registro, ensure_ascii=False, indent=2), encoding="utf-8")
+    temporal.replace(destino)
+    return registro
 
 
 @app.get("/api/registro")

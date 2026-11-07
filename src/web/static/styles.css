@@ -215,3 +215,7 @@ pre.json { margin: 8px 0 0; padding: 12px 14px; background: #0a0e10; border: 1px
 /* Registro de contención */
 .tabla-reg { display: grid; grid-template-columns: 150px 140px minmax(160px, 1.4fr) 150px 130px minmax(100px, 1fr); gap: 10px; padding: 10px 16px; border-bottom: 1px dashed var(--ln); font-size: 12.5px; min-width: 900px; align-items: center; overflow-wrap: anywhere; }
 .tabla-reg.hd { color: var(--mu); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; font-size: 11.5px; }
+
+/* Informe de investigación */
+.lt { display: grid; grid-template-columns: 160px 120px minmax(240px, 1fr) 80px; gap: 12px; padding: 7px 0; border-bottom: 1px dashed var(--ln); font-size: 12.5px; min-width: 640px; }
+.lt:last-child { border-bottom: 0; }

@@ -184,6 +184,59 @@ function grupoAtaque(id) {
     h("button", { class: "btn sm", type: "button", onClick: () => descargar(`${t.ticket_id}.json`, t) }, "Ticket único JSON"));
 }
 
+// --- Informe de investigación (nivel 3) -----------------------------------------------------
+
+function lista(items) {
+  return items?.length ? h("ul", { class: "lista" }, ...items.map((t) => h("li", {}, t))) : h("p", { class: "nota" }, "Nada que indicar.");
+}
+
+function seccion(titulo, ...contenido) {
+  return h("div", {}, h("h3", { style: { margin: "0 0 4px", fontSize: "12px", color: "var(--mu)", letterSpacing: ".08em", textTransform: "uppercase" } }, titulo), ...contenido);
+}
+
+function verInforme(registro) {
+  const i = registro.informe;
+  const cumple = (registro.informe_errores || []).length === 0;
+  return h("div", { style: { display: "flex", flexDirection: "column", gap: "14px" } },
+    h("div", { class: "meta" }, mono(i.incident_id), chip(`${i.alert_ids.length} alerta${i.alert_ids.length === 1 ? "" : "s"}`),
+      chip(`confianza ${Number(i.confidence).toFixed(2)}`, "c-ia"), chip(cumple ? "Cumple el esquema de Deloitte" : "Informe con errores de esquema", cumple ? "c-co" : "c-med")),
+    seccion("Paciente cero", h("p", { style: { margin: 0 } }, i.patient_zero)),
+    seccion("Acceso inicial", h("p", { style: { margin: 0 } }, i.initial_access)),
+    seccion("Línea de tiempo", h("div", { class: "scroll" }, h("div", { class: "tope" }, ...i.timeline.map((f) =>
+      h("div", { class: "lt" }, h("span", { class: "m" }, hora(f.timestamp)), h("span", { class: "m" }, f.event_id), h("span", {}, f.description), h("span", { class: "m" }, f.mitre || ""))))) ),
+    seccion("Alcance", kv("Usuarios", cortar((i.scope.users || []).join(", ") || "—", 90)), kv("Equipos", cortar((i.scope.hosts || []).join(", ") || "—", 90)),
+      h("p", { class: "nota" }, i.scope.data), h("p", { class: "nota" }, i.scope.business_impact)),
+    seccion("Causa raíz", h("p", { style: { margin: 0 } }, i.root_cause)),
+    seccion("Plan de contención (lo aprueba una persona)", ...(i.containment_plan.length ? i.containment_plan.map((p) => kv(h("span", { class: "m" }, p.action), h("span", {}, `${cortar(p.target, 60)} · ${p.approver}`))) : [h("p", { class: "nota" }, "Sin acciones.")])),
+    seccion("Erradicación y recuperación", lista(i.eradication_and_recovery)),
+    seccion("A quién avisar", lista(i.notifications)),
+    seccion("Huecos de detección", lista(i.detection_gaps)),
+    seccion("Preguntas abiertas", lista(i.open_questions)),
+    h("div", { class: "fila-btn" }, h("button", { class: "btn sm", type: "button", onClick: () => descargar(`${i.incident_id}.json`, i) }, "Informe JSON")));
+}
+
+function panelInforme(id, r) {
+  if (r.politica?.decision !== "escalar") return null;
+  const cuerpo = h("div", {}, h("p", { class: "nota" }, "Cargando…"));
+  const mostrarBoton = (mensaje = "") => {
+    const boton = h("button", { class: "btn go", type: "button", onClick: async () => {
+      boton.disabled = true;
+      boton.textContent = "Investigando…";
+      try {
+        cuerpo.replaceChildren(verInforme(await api.investigar(id)));
+      } catch (e) {
+        aviso(e.message);
+        mostrarBoton(e.message);
+      }
+    } }, "Generar informe de investigación");
+    cuerpo.replaceChildren(
+      h("p", { class: "nota" }, "Reconstruye la cadena de ataque con las alertas triadas del mismo incidente: línea de tiempo con eventos reales, alcance, causa raíz, contención propuesta y a quién avisar. Tarda unos 15 s y no ejecuta nada."),
+      mensaje ? h("div", { class: "err-caja" }, mensaje) : null, boton);
+  };
+  api.informe(id).then((g) => (g ? cuerpo.replaceChildren(verInforme(g)) : mostrarBoton()));
+  return panel("", "ia", "Informe de investigación · nivel 3", "IA redacta, el código comprueba", cuerpo);
+}
+
 // --- Quién decide qué (siempre a la vista) -------------------------------------------------
 
 function reparto(r) {
@@ -370,7 +423,7 @@ export function montarDetalle(raiz, id) {
     const recargar = async () => { await refrescarResultado(id); cargar(); };
     raiz.replaceChildren(volver(), cabecera(r, meta), pasos(pendiente), reparto(r),
       h("div", { class: "rejilla" },
-        h("div", { class: "col-izq" }, consultas(r), base(r), propuestaIA(r), alertaOriginal(id, r)),
+        h("div", { class: "col-izq" }, consultas(r), base(r), propuestaIA(r), panelInforme(id, r), alertaOriginal(id, r)),
         h("aside", { class: "col-der" }, grupoAtaque(id), politica(r), persona(r, recargar))));
   };
 

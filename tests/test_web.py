@@ -244,3 +244,34 @@ def test_la_alerta_original_sale_del_resultado_o_del_dataset(cliente):
     api._guardar({**_resultado(guardada), "alerta": guardada})
     assert cliente.get("/api/alertas/ALR-9/original").json() == guardada
     assert cliente.get("/api/alertas/ALR-1/original").json()["rule_id"] == "UC-WEB-001"  # está en el dataset
+
+
+def test_el_informe_de_investigacion_solo_se_genera_para_lo_escalado(cliente, monkeypatch):
+    from tests.test_agrupar import _resultado_de, alerta, host
+
+    a1, a2 = alerta(1, "UC-EML-003", **host("PC1")), alerta(2, "UC-EDR-001", hora=12, **host("PC1"))
+    for a in (a1, a2):
+        r = {**_resultado_de(a), "alerta": a}
+        r["politica"]["veredicto"] = "true_positive"
+        api._guardar(r)
+    llamadas = []
+
+    def investigar_falso(ticket, resultados, alertas, **opciones):
+        llamadas.append(ticket["ticket_id"])
+        return {"informe": {"incident_id": "INC-1", "alert_ids": ticket["alert_ids"]}, "informe_errores": [], "llm": {}}
+
+    monkeypatch.setattr(api, "investigar", investigar_falso)
+    assert cliente.get(f"/api/resultados/{a1['alert_id']}/informe").status_code == 404
+    r = cliente.post(f"/api/resultados/{a1['alert_id']}/investigar")
+    assert r.status_code == 200 and llamadas == ["TKT-GRP-20261009-000001"]  # el informe es del grupo entero
+    for a in (a1, a2):
+        guardado = cliente.get(f"/api/resultados/{a['alert_id']}/informe").json()
+        assert guardado["informe"]["alert_ids"] == [a1["alert_id"], a2["alert_id"]]
+    assert cliente.post("/api/resultados/ALR-404/investigar").status_code == 404
+
+
+def test_no_se_investiga_lo_que_no_esta_escalado(cliente, monkeypatch):
+    cliente.post("/api/triaje", json={"alertas": ["ALR-1"]})
+    api._resultados["ALR-1"]["ticket"]["escalation"] = {"escalate": False}
+    monkeypatch.setattr(api, "investigar", lambda *a, **k: pytest.fail("no debería investigar"))
+    assert cliente.post("/api/resultados/ALR-1/investigar").status_code == 409
