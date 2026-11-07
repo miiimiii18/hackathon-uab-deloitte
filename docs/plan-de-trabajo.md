@@ -150,7 +150,7 @@ Empezar por **tres runbooks** que cubran lo más común y después ampliar.
 - [ ] Pipeline completo para UNA regla (sugerencia: UC-EDR-002, con padre `CcmExec` → falso positivo, el caso más fácil) hasta producir un ticket válido.
 - [ ] Extender a las reglas de más volumen: WEB-001, EML-001, IDP-001, NET-001, NET-005, EDR-001, EDR-003, AI-001.
 - [ ] Playbooks para las 32 reglas raras (una vez cada una, aunque sean 1–2 alertas: son las más probables de ser incidentes).
-- [ ] Ticket validado contra `ticket_salida.schema.json` en cada ejecución.
+- [x] Ticket validado contra `ticket_salida.schema.json` en cada ejecución. *En `src/ticket.py`; `triar()` devuelve `ticket` y `ticket_errores`.*
 - [ ] Correr sobre las **150 alertas de la muestra** y revisar a mano al menos 30.
 - [ ] `confidence` coherente: baja cuando hay indicadores `unknown` o datos ausentes. `needs_more_info` como salida legítima, con `open_questions`.
 
