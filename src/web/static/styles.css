@@ -166,6 +166,7 @@ pre.json { margin: 8px 0 0; padding: 12px 14px; background: #0a0e10; border: 1px
 .val { display: flex; flex-wrap: wrap; gap: 8px; }
 .val span { display: inline-flex; align-items: center; height: 30px; padding: 0 11px; border-radius: 99px; font-size: 12.5px; background: rgba(105,186,255,.12); color: var(--co); }
 .val span.mal { background: rgba(255,97,97,.15); color: #ff9a9a; }
+.val span.falta { background: rgba(245,216,74,.13); color: var(--med); }
 .lista-ds { display: flex; flex-direction: column; gap: 4px; max-height: 340px; overflow: auto; }
 .lista-ds label { display: flex; gap: 12px; align-items: center; min-height: 48px; padding: 4px 10px; border-radius: 12px; border: 1px solid var(--ln); cursor: pointer; font-size: 13px; }
 .lista-ds input { width: 16px; height: 16px; accent-color: var(--lime); flex: none; }

@@ -15,9 +15,14 @@ El resultado se recorta para que quepa en el contexto del modelo local.
 
 from __future__ import annotations
 
+import csv
+import hashlib
 import ipaddress
 import json
+import os
 import re
+from functools import cache
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
@@ -95,6 +100,75 @@ def _lista(valor: Any) -> list:
     if valor is None:
         return []
     return valor if isinstance(valor, list) else [valor]
+
+
+RUTA_CATALOGO = Path(os.getenv("TARVIA_PATH", "data/tarvia")) / "01_contexto" / "catalogo_casos_de_uso.csv"
+SEVERIDADES_REGLA = ("informational", "low", "medium", "high", "critical")
+PREFIJO_MANUAL = "ALR-MANUAL-"  # ID que se pone a una alerta pegada sin alert_id
+
+
+@cache
+def catalogo() -> dict[str, dict[str, str]]:
+    """Catálogo oficial de reglas (rule_id → nombre, severidad base, runbook). Vacío si no está el dataset."""
+    if not RUTA_CATALOGO.exists():
+        return {}
+    with RUTA_CATALOGO.open(encoding="utf-8", newline="") as f:
+        return {fila["rule_id"]: fila for fila in csv.DictReader(f) if fila.get("rule_id")}
+
+
+def motivo_de_rechazo(alerta: Any) -> str | None:
+    """Por qué no se puede triar una alerta pegada (None = se puede). Solo se exige algo que investigar."""
+    if not isinstance(alerta, dict):
+        return "no es un objeto JSON"
+    if not any(alerta.get(c) for c in ("rule_id", "rule_name", "entities", "evidence")):
+        return "no trae nada que investigar (ni rule_id, ni rule_name, ni entities, ni evidence)"
+    return None
+
+
+def completar_alerta(alerta: dict[str, Any]) -> dict[str, Any]:
+    """Rellena lo que falta en una alerta pobre y anota cada cosa en `avisos_de_carga`.
+
+    - Sin `alert_id`: uno estable a partir del contenido (`ALR-MANUAL-…`), así la misma alerta pegada
+      dos veces tiene el mismo ID.
+    - Con un `rule_id` del catálogo: nombre, severidad base y runbook de la regla si faltan.
+    - Sin `created_at` no se inventa una hora (con la de hoy, la ventana de ±24 h caería fuera de
+      los datos): se avisa de que los logs se buscan sin ventana temporal.
+    """
+    a = dict(alerta)
+    # Los avisos se calculan siempre aquí: unos que vinieran en la alerta los habría escrito quien la
+    # envía (quizá el atacante) y se enseñarían como si fueran del sistema.
+    a.pop("avisos_de_carga", None)
+    avisos: list[str] = []
+
+    def avisar(texto: str) -> None:
+        if texto not in avisos:
+            avisos.append(texto)
+
+    if not a.get("alert_id"):
+        huella = hashlib.sha256(json.dumps(a, sort_keys=True, default=str).encode("utf-8")).hexdigest()[:10].upper()
+        a["alert_id"] = f"{PREFIJO_MANUAL}{huella}"
+    if str(a["alert_id"]).startswith(PREFIJO_MANUAL):  # asignado aquí o por la web al pegarla
+        avisar(f"La alerta no traía alert_id: se le asigna {a['alert_id']}.")
+    regla = catalogo().get(str(a.get("rule_id") or ""))
+    if regla:
+        if not a.get("rule_name"):
+            a["rule_name"] = regla["nombre"]
+        if str(a.get("severity") or "").strip().lower() not in SEVERIDADES_REGLA and regla.get("severidad_base"):
+            avisar(f"La alerta no traía una severidad válida: se usa la de la regla en el catálogo ({regla['severidad_base']}).")
+            a["severity"] = regla["severidad_base"]
+        if not a.get("runbook") and regla.get("runbook"):
+            a["runbook"] = regla["runbook"]
+            avisar(f"La alerta no traía runbook: se usa el de la regla en el catálogo ({regla['runbook']}).")
+    elif a.get("rule_id"):
+        avisar(f"La regla {a['rule_id']} no está en el catálogo: se revisan las fuentes de log por defecto.")
+    if not a_fecha(str(a.get("created_at") or "")):
+        avisar("La alerta no traía una hora válida (created_at): los logs se buscan sin ventana de ±24 h y las "
+               "reglas que dependen de la hora no se pueden comprobar.")
+    if not a.get("entities"):
+        avisar("La alerta no trae entidades (equipos, usuarios, IPs...): hay poco que consultar y la confianza será baja.")
+    if avisos:
+        a["avisos_de_carga"] = avisos
+    return a
 
 
 def normalizar_alerta(alerta: dict[str, Any]) -> dict[str, Any]:

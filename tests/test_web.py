@@ -86,10 +86,18 @@ def test_el_triaje_envia_las_etapas_y_guarda_el_resultado(cliente, tmp_path):
     assert len(cliente.get("/api/resultados").json()) == 2
 
 
-def test_una_alerta_pegada_sin_campos_se_rechaza_con_el_motivo(cliente):
-    r = cliente.post("/api/triaje", json={"alertas": [{"alert_id": "X", "rule_id": "UC-1"}]})
-    assert r.status_code == 422
-    assert "severity" in r.json()["detail"] and "created_at" in r.json()["detail"] and "entities" in r.json()["detail"]
+def test_solo_se_rechaza_una_alerta_pegada_sin_nada_que_investigar(cliente):
+    r = cliente.post("/api/triaje", json={"alertas": [{"alert_id": "X", "severity": "high"}]})
+    assert r.status_code == 422 and "nada que investigar" in r.json()["detail"]
+
+
+def test_una_alerta_pegada_pobre_se_tria_y_sin_alert_id_recibe_uno_estable(cliente):
+    pobre = {"rule_id": "UC-1", "entities": {"hosts": ["H"]}}
+    evs = eventos(cliente.post("/api/triaje", json={"alertas": [pobre, {"alert_id": "SOLO-REGLA", "rule_id": "UC-2"}]}))
+    ids = sorted(e["alert_id"] for e in evs if e["tipo"] == "resultado")
+    assert ids[0].startswith("ALR-MANUAL-") and ids[1] == "SOLO-REGLA"
+    otra_vez = eventos(cliente.post("/api/triaje", json={"alertas": [pobre]}))
+    assert next(e for e in otra_vez if e["tipo"] == "resultado")["alert_id"] == ids[0]
 
 
 def test_una_alerta_pegada_completa_se_tria(cliente):

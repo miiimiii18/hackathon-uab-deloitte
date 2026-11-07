@@ -48,7 +48,7 @@ varias alertas triadas ─► agrupar ─► ticket único del grupo ─► inve
 
 Principios que no se rompen (detalle en «Principios de diseño»): el LLM propone y redacta, **el código decide** severidad, escalado y permisos; el LLM no ejecuta nada; lo que viene de alertas y logs es dato no fiable; desconocido ≠ limpio.
 
-Módulos (`src/`): `soc_client.py` (cliente de la API con caché, traza y búsqueda exacta), `evidencia.py`, `llm.py`, `policy.py`, `ticket.py`, `triaje.py` (`triar`, `triar_en_paralelo`), `agrupar.py`, `investigacion.py`, `contencion.py`, `esquemas/` (esquemas copiados del dataset), `web/` (`api.py` FastAPI + `static/` HTML/CSS/JS sin build; ver [`docs/web.md`](docs/web.md)). Otros: `scripts/evaluar.py`, `scripts/preparar_demo.py`, `evaluacion/` (gold set `casos.json`, 9 alertas inventadas, resultados), `tests/` (171 tests).
+Módulos (`src/`): `soc_client.py` (cliente de la API con caché, traza y búsqueda exacta), `evidencia.py`, `llm.py`, `policy.py`, `ticket.py`, `triaje.py` (`triar`, `triar_en_paralelo`), `agrupar.py`, `investigacion.py`, `contencion.py`, `esquemas/` (esquemas copiados del dataset), `web/` (`api.py` FastAPI + `static/` HTML/CSS/JS sin build; ver [`docs/web.md`](docs/web.md)). Otros: `scripts/evaluar.py`, `scripts/preparar_demo.py`, `evaluacion/` (gold set `casos.json`, 9 alertas inventadas, resultados), `tests/` (177 tests).
 
 Endpoints web que importan: `POST /api/triaje` (SSE), `GET /api/grupos`, `POST /api/resultados/{id}/investigar`, `GET /api/resultados/{id}/informe`, `POST /api/resultados/{id}/decisiones`, `POST /api/resultados/{id}/acciones/{n}/ejecutar`, `GET /api/registro`.
 
@@ -62,7 +62,7 @@ Por orden de importancia para la defensa:
 
 **Riesgos conocidos para el domingo** (todos en `docs/limitaciones.md`):
 - El modelo es inestable: puede escalar un falso positivo o dejar un ataque en `needs_more_info`. Tras el endurecimiento no se ha vuelto a cerrar un ataque en las pruebas, pero son reglas concretas, no una garantía.
-- **La web rechaza alertas pegadas** a las que les falte `alert_id`, `rule_id`, `severity`, `created_at` o `entities`. El motor sí las trataría desde la CLI: `python -m src.triaje alerta.json`. Si Deloitte da alertas más pobres, relajar `faltan_campos` en `src/web/api.py` (y `CAMPOS` en `panel.js`).
+- **Alertas pobres:** la web solo rechaza lo que no trae nada que investigar (ni `rule_id`, ni `rule_name`, ni `entities`, ni `evidence`). Lo demás se tría: `completar_alerta()` en `src/evidencia.py` pone un `ALR-MANUAL-…` estable si falta el ID, saca severidad, runbook y nombre del catálogo de reglas, y cada cosa sale como aviso en la política. **Sin `created_at` los logs se buscan sin ventana de ±24 h** y las reglas que dependen de la hora (p. ej. `ext.logisoft`) no se pueden comprobar: el resultado será más pobre.
 - El servidor del LLM es compartido y puede saturarse: usar el **Modo demo**.
 
 ## Retomar en otro ordenador
