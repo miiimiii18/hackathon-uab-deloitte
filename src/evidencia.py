@@ -91,6 +91,57 @@ def _upn_valido(upn: Any) -> bool:
 # --- Qué buscar ------------------------------------------------------------------------
 
 
+def _lista(valor: Any) -> list:
+    if valor is None:
+        return []
+    return valor if isinstance(valor, list) else [valor]
+
+
+def normalizar_alerta(alerta: dict[str, Any]) -> dict[str, Any]:
+    """Devuelve una copia de la alerta con un formato predecible, para que nada se rompa.
+
+    Las 10 alertas del domingo pueden venir de fuera del dataset y con campos raros:
+    usuarios u hosts como texto en vez de objetos, valores None o números, listas que
+    llegan como un solo valor, severidad en mayúsculas... Aquí se arregla todo eso UNA
+    vez, al entrar, en vez de comprobarlo en cada sitio que lee la alerta.
+    """
+    a = dict(alerta) if isinstance(alerta, dict) else {}
+    ent = a.get("entities") if isinstance(a.get("entities"), dict) else {}
+
+    def objetos(valores: Any, clave: str) -> list[dict]:
+        salida = []
+        for v in _lista(valores):
+            if isinstance(v, str) and v.strip():
+                salida.append({clave: v.strip()})
+            elif isinstance(v, dict):
+                salida.append(v)
+        return salida
+
+    def textos(valores: Any) -> list[str]:
+        return [v.strip() for v in _lista(valores) if isinstance(v, str) and v.strip()]
+
+    normal = {
+        "users": objetos(ent.get("users"), "upn"),
+        "hosts": objetos(ent.get("hosts"), "hostname"),
+        "ips": textos(ent.get("ips")),
+        "domains": textos(ent.get("domains")),
+        "urls": textos(ent.get("urls")),
+        "files": [f for f in _lista(ent.get("files")) if isinstance(f, dict)],
+        "customers": objetos(ent.get("customers"), "customer_id"),
+        "processes": [p for p in _lista(ent.get("processes")) if isinstance(p, dict)],
+    }
+    if isinstance(ent.get("cloud"), dict):
+        normal["cloud"] = ent["cloud"]
+    if isinstance(ent.get("ai_session"), str):
+        normal["ai_session"] = ent["ai_session"]
+    a["entities"] = {k: v for k, v in normal.items() if v}
+    a["evidence"] = a.get("evidence") if isinstance(a.get("evidence"), dict) else {}
+    a["related_events"] = textos(a.get("related_events"))
+    if isinstance(a.get("severity"), str):
+        a["severity"] = a["severity"].strip().lower()
+    return a
+
+
 def entidades(alerta: dict[str, Any]) -> dict[str, list[str]]:
     """Extrae de la alerta las entidades en listas simples y sin repetidos."""
     ent = alerta.get("entities") or {}
