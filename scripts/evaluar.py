@@ -2,8 +2,10 @@
 
 Cada caso dice qué veredictos son aceptables y por qué. El script tría todas las
 alertas (en paralelo), compara el veredicto FINAL (el de la política) y muestra el
-acierto por categoría. Con --repeticiones N repite cada alerta N veces para medir
-la ESTABILIDAD del modelo (en casos límite puede cambiar de una ejecución a otra).
+acierto por categoría. También mide la severidad final y la decisión (cerrar / revisar /
+escalar) en los casos que las tienen etiquetadas (`severidades_validas`,
+`decisiones_validas`); los demás no cuentan. Con --repeticiones N repite cada alerta N veces
+para medir la ESTABILIDAD del modelo (en casos límite puede cambiar de una ejecución a otra).
 
 Necesita la API del SOC arrancada y LLM_API_KEY en .env. Desde la raíz del proyecto
 (con -m, para que Python encuentre el paquete src):
@@ -21,6 +23,23 @@ from pathlib import Path
 
 from src.triaje import triar_lote
 
+METRICAS = (("veredicto", "veredictos_validos"), ("severidad", "severidades_validas"), ("decision", "decisiones_validas"))
+
+
+def observado(resultado: dict) -> dict[str, str]:
+    """Lo que decidió el sistema (veredicto, severidad y decisión finales, los de la política)."""
+    p = resultado.get("politica") or {}
+    if not p:
+        error = "ERROR: " + str(resultado.get("error", "?"))
+        return {"veredicto": error, "severidad": error, "decision": error}
+    return {"veredicto": p["veredicto"], "severidad": p["severidad_final"], "decision": p["decision"]}
+
+
+def puntuar(caso: dict, resultado: dict) -> dict[str, bool | None]:
+    """Acierta o falla cada métrica. None = el caso no tiene etiqueta para esa métrica (no se mide)."""
+    obtenido = observado(resultado)
+    return {m: (obtenido[m] in caso[campo] if campo in caso else None) for m, campo in METRICAS}
+
 
 def evaluar(casos: list[dict], repeticiones: int, paralelo: int) -> list[dict]:
     # «fichero» = alerta que no está en el dataset (p. ej., las inventadas para la prueba de robustez).
@@ -29,11 +48,30 @@ def evaluar(casos: list[dict], repeticiones: int, paralelo: int) -> list[dict]:
     filas = []
     for i, caso in enumerate(casos):
         tandas = resultados[i * repeticiones:(i + 1) * repeticiones]
-        veredictos = [r.get("politica", {}).get("veredicto", "ERROR: " + r.get("error", "?")) for r in tandas]
-        aciertos = sum(v in caso["veredictos_validos"] for v in veredictos)
-        filas.append({**caso, "veredictos": veredictos, "aciertos": aciertos, "total": len(veredictos),
+        obtenidos = [observado(r) for r in tandas]
+        puntos = [puntuar(caso, r) for r in tandas]
+        veredictos = [o["veredicto"] for o in obtenidos]
+        filas.append({**caso, "veredictos": veredictos, "obtenidos": obtenidos, "puntos": puntos,
+                      "aciertos": sum(p["veredicto"] for p in puntos), "total": len(veredictos),
                       "estable": len(set(veredictos)) == 1, "resultados": tandas})
     return filas
+
+
+def _resumen(filas: list[dict], metrica: str) -> tuple[int, int]:
+    medidos = [p[metrica] for f in filas for p in f["puntos"] if p[metrica] is not None]
+    return sum(medidos), len(medidos)
+
+
+def fallos(filas: list[dict]) -> list[str]:
+    """Cada fallo, con lo esperado y lo obtenido, para anotar los fallos tipo."""
+    lineas = []
+    for f in filas:
+        for metrica, campo in METRICAS:
+            malos = [o[metrica] for o, p in zip(f["obtenidos"], f["puntos"], strict=True) if p[metrica] is False]
+            if malos:
+                lineas.append(f"  {f['alert_id']:22} {f['categoria']:16} {metrica:9} esperado {' | '.join(f[campo])}"
+                              f" → obtenido {', '.join(malos)}")
+    return lineas
 
 
 def informe(filas: list[dict]) -> str:
@@ -49,11 +87,16 @@ def informe(filas: list[dict]) -> str:
     lineas.append("")
     for cat, (ok, total) in sorted(por_categoria.items()):
         lineas.append(f"  {cat:18} {ok}/{total} ({100 * ok / total:.0f} %)")
-    ok, total = sum(f["aciertos"] for f in filas), sum(f["total"] for f in filas)
+    lineas.append("")
+    for metrica, _ in METRICAS:
+        ok, total = _resumen(filas, metrica)
+        if total:
+            lineas.append(f"  {metrica.upper():10} {ok}/{total} ({100 * ok / total:.0f} %)")
     inestables = [f["alert_id"] for f in filas if not f["estable"]]
-    lineas.append(f"  {'TOTAL':18} {ok}/{total} ({100 * ok / total:.0f} %)")
     if inestables:
         lineas.append(f"  Inestables (veredicto distinto entre repeticiones): {', '.join(inestables)}")
+    if lista := fallos(filas):
+        lineas += ["", "Fallos (esperado → obtenido):", *lista]
     return "\n".join(lineas)
 
 
