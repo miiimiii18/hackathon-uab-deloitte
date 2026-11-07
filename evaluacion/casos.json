@@ -304,9 +304,10 @@
     "categoria": "autorizacion",
     "veredictos_validos": [
       "true_positive",
-      "false_positive"
+      "false_positive",
+      "needs_more_info"
     ],
-    "motivo": "Escaneo bloqueado en fechas del pentest pero desde IP que no es del pentest: nunca benign_true_positive.",
+    "motivo": "Escaneo puntual (1 petición, 403) en fechas del pentest desde una IP que NO es del pentest: nunca benign_true_positive.",
     "revisado": false
   },
   {
@@ -314,7 +315,8 @@
     "categoria": "autorizacion",
     "veredictos_validos": [
       "true_positive",
-      "false_positive"
+      "false_positive",
+      "needs_more_info"
     ],
     "motivo": "Ídem.",
     "revisado": false
@@ -326,7 +328,7 @@
       "false_positive",
       "benign_true_positive"
     ],
-    "motivo": "Fichero de prueba EICAR en cuarentena.",
+    "motivo": "Fichero de prueba EICAR en cuarentena; 64 alertas iguales en el mes en muchos equipos y ningún cambio que lo autorice.",
     "revisado": false
   },
   {
@@ -334,9 +336,9 @@
     "categoria": "matices",
     "veredictos_validos": [
       "true_positive",
-      "needs_more_info"
+      "false_positive"
     ],
-    "motivo": "PUA WebCompanion en cuarentena, no ejecutado.",
+    "motivo": "PUA WebCompanion en cuarentena y no ejecutado; hay 59 alertas iguales en el mes. La detección es correcta (TP bloqueado) aunque sea ruido; no falta información.",
     "revisado": false
   },
   {
@@ -346,38 +348,44 @@
       "benign_true_positive",
       "false_positive"
     ],
-    "motivo": "Simulacro de phishing de RRHH reportado por una usuaria.",
+    "motivo": "Simulacro de phishing de RRHH (301 correos en el mes, SPF/DKIM/DMARC correctos, enlace interno, el asunto dice que es un simulacro). Sin cambio en el calendario: nuestra política lo dejará en false_positive.",
     "revisado": false
   },
   {
     "alert_id": "ALR-20261023-011915",
     "categoria": "decision_equipo",
     "veredictos_validos": [
-      "needs_more_info",
-      "benign_true_positive"
+      "benign_true_positive",
+      "needs_more_info"
     ],
-    "motivo": "Alta de adm2.aferrer (cuenta inexistente) en Backup Operators dentro de la ventana de CHG-2026-1078: ¿autorizado o tapadera?",
+    "motivo": "Pareja «legítima» de ALR-20261018-011895: desde JUMP01, en horario, dentro de la ventana de CHG-2026-1078 (que es justo «Alta en Backup Operators»). En contra: adm2.aferrer no está en el directorio ni hay evento de creación.",
     "revisado": false
   },
   {
     "alert_id": "ALR-20261101-010863",
-    "categoria": "decision_equipo",
+    "categoria": "ruido",
     "veredictos_validos": [
-      "false_positive",
-      "benign_true_positive",
-      "needs_more_info"
+      "false_positive"
     ],
-    "motivo": "Bucket de medios pasa a público por Terraform desde el CI, sin cambio en el calendario.",
+    "motivo": "Bucket de medios: la misma policy pública se aplica cada 3 días a la misma hora por Terraform desde el runner de CI interno (50 veces en el mes; muchas alertas iguales). Despliegue rutinario; sin cambio citable → false_positive.",
     "revisado": false
   },
   {
     "alert_id": "ALR-20261007-001237",
-    "categoria": "decision_equipo",
+    "categoria": "ruido",
     "veredictos_validos": [
-      "false_positive",
-      "needs_more_info"
+      "false_positive"
     ],
-    "motivo": "Analista de fraude sube fotos de campaña (825 MB, sin datos personales) a WeTransfer.",
+    "motivo": "El mismo fotos_campaña_navidad_RAW.zip lo suben a WeTransfer 58 empleados distintos durante el mes, sin datos personales: práctica habitual de la empresa.",
+    "revisado": false
+  },
+  {
+    "alert_id": "ALR-20261018-011895",
+    "categoria": "incidente",
+    "veredictos_validos": [
+      "true_positive"
+    ],
+    "motivo": "Pareja «de ataque» de ALR-20261023-011915: adm.aortega añade a Domain Admins una cuenta creada 1 minuto antes, desde PRINT01 (no JUMP01), un sábado a las 03:13, sin cambio.",
     "revisado": false
   }
 ]
