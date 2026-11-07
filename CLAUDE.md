@@ -113,6 +113,7 @@ Cosas que hay que saber de la API (comprobado en su código):
 
 Acordados en el plan de trabajo (sección 4). Cualquier código nuevo debe respetarlos:
 
+- **LLM local y gratuito.** El equipo ha decidido no usar APIs de pago: el modelo corre en local con [Ollama](https://ollama.com) (`gpt-oss:20b` por defecto, en el portátil con la RTX 4060 de 8 GB). El cliente es `src/llm.py` y se configura en `.env` (`OLLAMA_URL`, `LLM_MODEL`...). Al ser un modelo pequeño, el código tiene que darle la evidencia ya filtrada y resumida.
 - **Código para lo determinista, LLM para razonar y redactar.** La severidad (matriz y ajustes ±1), el escalado obligatorio y los permisos de contención van en código (`src/policy.py`), con tests, y nunca en el prompt. El LLM propone el veredicto, la confianza y la argumentación.
 - **El LLM no ejecuta acciones.** Las acciones se construyen en código a partir del veredicto y las aprueba una persona. Nunca se actúa sobre la red OT.
 - **Datos no fiables delimitados.** Todo lo que viene de alertas y logs se pasa al LLM marcado como datos, y la salida del LLM es JSON validado contra el schema.
