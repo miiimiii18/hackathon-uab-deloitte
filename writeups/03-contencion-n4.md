@@ -15,7 +15,7 @@ Proponer la contención y ejecutarla en la API simulada, siempre con aprobación
 5. **En la web** (`src/web/`): «mantén pulsado para aprobar» con nombre, rechazar, confirmar cierre o pasar a N2. El servidor toma la acción de su copia del ticket: el navegador no puede cambiar `permitida`.
 
 ## Pendiente
-- Pantalla con el `containment_log` completo (el endpoint `GET /api/registro` ya existe).
+- Nada para la demo. (La pantalla con el `containment_log` completo se hizo el 7-nov: `#/registro`.)
 
 ## Lo que aprendimos
 - Separar «qué se propone» de «quién lo aprueba» evita que un texto malicioso lleve al sistema a actuar.
