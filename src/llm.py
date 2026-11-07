@@ -258,7 +258,9 @@ def marcar_datos_no_fiables(datos: Any) -> str:
     Se neutraliza cualquier intento de cerrar la etiqueta desde dentro de los datos
     (p. ej., un asunto de correo que contenga «</datos_no_fiables>»).
     """
-    texto = json.dumps(datos, ensure_ascii=False, indent=1, default=str)
+    # JSON compacto (sin sangría ni espacios): los espacios y saltos de línea también
+    # gastan tokens del contexto, que en el modelo local es limitado.
+    texto = json.dumps(datos, ensure_ascii=False, separators=(",", ":"), default=str)
     texto = texto.replace(f"</{ETIQUETA}", f"<\\/{ETIQUETA}").replace(f"<{ETIQUETA}", f"<\\{ETIQUETA}")
     return f"<{ETIQUETA}>\n{texto}\n</{ETIQUETA}>"
 

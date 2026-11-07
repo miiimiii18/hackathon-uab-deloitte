@@ -40,7 +40,10 @@ FUENTES_POR_DEFECTO = ["edr_events", "proxy", "idp_signins"]
 MAX_TERMINOS = 4  # entidades distintas que se buscan en los logs
 MAX_INDICADORES = 6
 MAX_EVENTOS_RELACIONADOS = 10
-MAX_CARACTERES = 24_000  # ≈ 6.000 tokens de evidencia como máximo
+# Tope de evidencia. Este texto (JSON en español) sale a ~2,8 caracteres por token,
+# así que 14.000 caracteres ≈ 5.000 tokens. Con el prompt fijo (~5.000) y la alerta,
+# quedan ~6.000 tokens para la respuesta con LLM_NUM_CTX=16384.
+MAX_CARACTERES = 14_000
 
 # Solo las redes internas «de verdad». No se usa ip.is_private porque marca como
 # privadas 198.18.0.0/15 o 203.0.113.0/24, que en este dataset hacen de IPs de internet.
@@ -214,6 +217,6 @@ def _recortar(ev: dict[str, Any], grupos: list[dict], momento: str) -> dict[str,
             | ({"muestra": [compactar(x) for x in _mas_cercanos(g["eventos"], momento, n)]} if n and g["eventos"] else {})
             for g in grupos
         ]
-        if len(json.dumps(ev, ensure_ascii=False)) <= MAX_CARACTERES:
+        if len(json.dumps(ev, ensure_ascii=False, separators=(",", ":"))) <= MAX_CARACTERES:
             break
     return ev
