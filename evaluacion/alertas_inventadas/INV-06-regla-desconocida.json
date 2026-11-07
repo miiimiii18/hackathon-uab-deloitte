@@ -1,0 +1,18 @@
+{
+  "alert_id": "INV-06",
+  "created_at": "2026-11-08T10:00:00.000Z",
+  "source_product": "XDR",
+  "rule_id": "UC-NEW-001",
+  "rule_name": "Regla nueva de prueba: comportamiento anómalo",
+  "severity": "medium",
+  "status": "new",
+  "description": "Regla que no existe en el catálogo.",
+  "entities": {
+    "ips": [
+      "203.0.113.250"
+    ]
+  },
+  "evidence": {
+    "score": 77
+  }
+}

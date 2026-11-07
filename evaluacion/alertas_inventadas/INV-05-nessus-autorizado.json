@@ -1,0 +1,31 @@
+{
+  "alert_id": "INV-05",
+  "created_at": "2026-10-21T00:30:00.000Z",
+  "source_product": "NGFW",
+  "rule_id": "UC-NET-003",
+  "rule_name": "Escaneo de puertos interno",
+  "severity": "medium",
+  "status": "new",
+  "mitre": {
+    "tactic": "Discovery",
+    "technique_id": "T1046",
+    "technique": "Network Service Discovery"
+  },
+  "description": "Un host interno contacta muchos puertos de muchos equipos.",
+  "entities": {
+    "hosts": [
+      {
+        "hostname": "NESSUS01",
+        "ip": "10.20.9.50"
+      }
+    ]
+  },
+  "evidence": {
+    "distinct_dst_hosts": 640,
+    "distinct_ports": 1000,
+    "window_min": 20,
+    "user": "svc_scanner"
+  },
+  "related_events": [],
+  "runbook": "RB-09"
+}

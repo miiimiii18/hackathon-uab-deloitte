@@ -1,0 +1,36 @@
+{
+  "alert_id": "INV-03",
+  "created_at": "2026-10-31T23:05:00.000Z",
+  "source_product": "IDP",
+  "rule_id": "UC-IDP-003",
+  "rule_name": "Fatiga MFA (bombardeo de notificaciones push)",
+  "severity": "high",
+  "status": "new",
+  "mitre": {
+    "tactic": "Credential Access",
+    "technique_id": "T1621",
+    "technique": "MFA Request Generation"
+  },
+  "description": "Muchas notificaciones push seguidas de una aprobación.",
+  "entities": {
+    "users": [
+      {
+        "upn": "enric.bosch@tarvia.example",
+        "display_name": "Enric Bosch"
+      }
+    ],
+    "ips": [
+      "171.25.193.25"
+    ]
+  },
+  "evidence": {
+    "push_requests": 19,
+    "window_min": 6,
+    "final_result": "approved",
+    "local_time": "domingo 01:05",
+    "src_country": "SE",
+    "app": "Office 365 Exchange Online"
+  },
+  "related_events": [],
+  "runbook": "RB-03"
+}
