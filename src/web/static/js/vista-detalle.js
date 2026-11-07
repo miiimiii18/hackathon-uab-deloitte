@@ -207,6 +207,9 @@ function verInforme(registro) {
     seccion("Alcance", kv("Usuarios", cortar((i.scope.users || []).join(", ") || "—", 90)), kv("Equipos", cortar((i.scope.hosts || []).join(", ") || "—", 90)),
       h("p", { class: "nota" }, i.scope.data), h("p", { class: "nota" }, i.scope.business_impact)),
     seccion("Causa raíz", h("p", { style: { margin: 0 } }, i.root_cause)),
+    seccion("Relación con otros incidentes (la calcula el código)", (i.related_incidents || []).length
+      ? lista(i.related_incidents)
+      : h("p", { class: "nota" }, "Ningún otro incidente escalado comparte entidades ni aparece en sus logs.")),
     seccion("Plan de contención (lo aprueba una persona)", ...(i.containment_plan.length ? i.containment_plan.map((p) => kv(h("span", { class: "m" }, p.action), h("span", {}, `${cortar(p.target, 60)} · ${p.approver}`))) : [h("p", { class: "nota" }, "Sin acciones.")])),
     seccion("Erradicación y recuperación", lista(i.eradication_and_recovery)),
     seccion("A quién avisar", lista(i.notifications)),

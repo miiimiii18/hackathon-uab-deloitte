@@ -301,6 +301,75 @@ def paciente_cero_verificable(texto: str, alertas: list[dict[str, Any]]) -> bool
     return bool(palabras & conocidas) or any(n in texto.lower() for n in conocidas if len(n) > 3)
 
 
+# --- Relación con otros incidentes (código, sin LLM) ----------------------------------------------
+
+_TIPOS_RELACION = {"hosts": "el equipo", "usuarios": "el usuario", "ips": "la IP", "clientes": "el cliente",
+                   "cloud": "la identidad cloud"}
+MAX_MOTIVOS = 3  # motivos que se citan por incidente relacionado
+
+
+def id_incidente(ticket: dict[str, Any]) -> str:
+    return f"INC-{str(ticket.get('ticket_id', '')).removeprefix('TKT-')}"
+
+
+def _entidades_nombradas(alertas: list[dict[str, Any]]) -> dict[str, str]:
+    """Entidad en minúsculas → cómo se nombra en el informe («el equipo WMS01»).
+
+    Los usuarios también por su nombre corto (en los logs sale `TARVIA\\ext.logisoft`, no el UPN).
+    """
+    nombres: dict[str, str] = {}
+    for a in alertas:
+        for tipo, articulo in _TIPOS_RELACION.items():
+            for v in entidades(a)[tipo]:
+                nombres.setdefault(v.lower(), f"{articulo} {v}")
+                corto = v.split("@")[0].lower()
+                if len(corto) > 3:  # un nombre corto de 1–3 letras casaría con cualquier cosa
+                    nombres.setdefault(corto, f"{articulo} {v}")
+    return nombres
+
+
+def _apariciones(nombres: dict[str, str], eventos: dict[str, dict[str, Any]]) -> dict[str, str]:
+    """Entidad → primer evento (por hora) de `eventos` donde aparece como palabra completa."""
+    vistas: dict[str, str] = {}
+    for event_id, e in sorted(eventos.items(), key=lambda par: _momento_evento(par[1])):
+        palabras = set(re.findall(r"[\w.@-]+", json.dumps(e, ensure_ascii=False).lower()))
+        for clave in nombres.keys() & palabras:
+            vistas.setdefault(clave, event_id)
+    return vistas
+
+
+def incidentes_relacionados(
+    alertas: list[dict[str, Any]],
+    triajes: list[dict[str, Any]],
+    otros: list[dict[str, Any]],
+) -> list[str]:
+    """Otros incidentes escalados que forman parte de la misma historia, con el motivo comprobable.
+
+    `otros`: [{"incident_id", "alertas", "triajes"}]. Dos incidentes se relacionan si comparten una
+    entidad en sus alertas (aunque estén lejos en el tiempo y la agrupación no los uniera) o si una
+    entidad de uno aparece en un evento de log que reunió el triaje del otro: p. ej., el usuario del
+    proveedor en un evento del EDR del servidor donde luego sale el túnel DNS. Cada motivo cita la
+    entidad y, si viene de los logs, el ID del evento, para que la persona lo compruebe.
+    """
+    propias = _entidades_nombradas(alertas)
+    eventos_propios = _eventos_conocidos(triajes)
+    salida = []
+    for otro in otros:
+        suyas = _entidades_nombradas(otro["alertas"])
+        # Por orden de tipo (equipo, usuario, IP...). Un usuario se cita una vez, no por UPN y por nombre corto.
+        motivos = [f"comparte {propias[c]}" for c in propias if c in suyas]
+        en_los_mios = _apariciones(suyas, eventos_propios)
+        motivos += [f"{suyas[c]} aparece en el evento {en_los_mios[c]} de este incidente"
+                    for c in suyas if c in en_los_mios and c not in propias]
+        en_los_suyos = _apariciones(propias, _eventos_conocidos(otro["triajes"]))
+        motivos += [f"{propias[c]} aparece en su evento {en_los_suyos[c]}"
+                    for c in propias if c in en_los_suyos and c not in suyas]
+        motivos = list(dict.fromkeys(motivos))
+        if motivos:
+            salida.append(f"{otro['incident_id']}: {'; '.join(motivos[:MAX_MOTIVOS])}")
+    return salida
+
+
 # --- El informe ---------------------------------------------------------------------------------
 
 
@@ -311,11 +380,13 @@ def investigar(
     *,
     enviar: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
     modelo: str | None = None,
+    otros_incidentes: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Informe de investigación de un ticket escalado (de una alerta o de un grupo).
 
     `resultados`: id de alerta → resultado de triar(); `alertas`: id → alerta completa.
-    Devuelve {"informe", "informe_errores", "llm"}; `informe_errores` vacío = cumple el esquema.
+    `otros_incidentes`: los demás incidentes escalados ([{"incident_id", "alert_ids"}]) con los que
+    buscar relación. Devuelve {"informe", "informe_errores", "llm"}; `informe_errores` vacío = cumple el esquema.
     """
     if (ticket.get("escalation") or {}).get("escalate") is not True:
         raise ValueError("Solo se investigan los tickets escalados a N2")
@@ -328,15 +399,24 @@ def investigar(
     tiempo = linea_de_tiempo(lista, triajes)
     redaccion, meta = redactar(_expediente(ticket, lista, triajes, tiempo), enviar=enviar, modelo=modelo)
 
+    propio = id_incidente(ticket)
+    otros = []
+    for inc in otros_incidentes or []:
+        suyas = [i for i in inc.get("alert_ids", []) if i in alertas and i not in ids and (resultados.get(i) or {}).get("llm")]
+        if suyas and inc.get("incident_id") != propio:
+            otros.append({"incident_id": inc["incident_id"], "alertas": [alertas[i] for i in suyas],
+                          "triajes": [resultados[i] for i in suyas]})
+    relacionados = incidentes_relacionados(lista, triajes, otros)
+
     preguntas = list(dict.fromkeys(redaccion.open_questions + list(ticket.get("open_questions") or [])))
     if not paciente_cero_verificable(redaccion.patient_zero, lista):
         preguntas.insert(0, "El paciente cero que propone el modelo no coincide con ningún equipo, usuario o IP de las "
                             "alertas: hay que confirmarlo antes de actuar.")
     informe = {
-        "incident_id": f"INC-{ticket['ticket_id'].removeprefix('TKT-')}",
+        "incident_id": propio,
         "title": ticket["title"],
         "alert_ids": [a["alert_id"] for a in lista],
-        "related_incidents": [],
+        "related_incidents": relacionados,
         "patient_zero": redaccion.patient_zero,
         "initial_access": redaccion.initial_access,
         "timeline": tiempo,
