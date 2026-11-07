@@ -168,6 +168,8 @@ python -m src.triaje ALR-1 ALR-2 ALR-3 --paralelo 5 --salida data/out/lote
 
 Medido con 10 alertas: una detrás de otra, 195 s; con 5 en paralelo, 58 s (3,4× más rápido, mismos veredictos). Para la UI: `triar_en_paralelo()` devuelve cada alerta en cuanto termina (para ir llenando la cola) y `triar_lote()` las devuelve todas en orden. Cada alerta usa su propio `SocClient` y un fallo en una no para las demás (`{"error": ...}`).
 
+**Resultado de `triar()`** (lo que consume la UI): `traza` (qué se consultó), `evidencia` (en qué se basa), `llm` (lo que propone la IA), `politica` (lo que decide el código) y **`ticket`**: el ticket en el formato oficial de Deloitte (`ticket_salida.schema.json`), construido en `src/ticket.py` y validado en cada ejecución (`ticket_errores` vacío = válido). El ticket lleva el veredicto **verificado por la política** (no el del LLM, que va en `veredicto_llm`) y, además de los campos oficiales, `decision`, `sla` y, en cada acción, `aprobador` y `permitida`. El esquema está copiado en `src/esquemas/` para poder validar sin el dataset.
+
 Piezas del triaje: `src/soc_client.py` (cliente de la API con caché, traza y búsqueda exacta), `src/evidencia.py` (qué se consulta según el runbook) y `src/llm.py` (análisis con el modelo local). Reunir la evidencia lleva ~1 s por alerta; casi todo el tiempo del triaje es del modelo.
 
 **Usad siempre `127.0.0.1` y no `localhost`** en la URL de la API del SOC (`SOC_API_URL`): en Windows, `localhost` prueba primero IPv6, la API solo escucha en IPv4 y cada petición pierde ~2 s. Con `localhost` la evidencia tardaba 20–40 s; con `127.0.0.1`, ~1 s.
