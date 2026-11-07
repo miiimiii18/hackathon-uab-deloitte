@@ -27,7 +27,8 @@ La defensa es el domingo. **Hecho y en `main`:** niveles 1, 2, 3 y 4 funcionando
 
 Lo que se añadió el 7-nov (además del N1 que ya existía):
 - **Agrupación** (`agrupar`, `consolidar_grupo`, `agrupar_resultados`): une alertas triadas y sospechosas por entidades compartidas (ventana 30 días para cuentas y equipos, 3 días para IP, dominio y hash; ignora entidades que salen en más de 12 alertas). Un grupo se escala siempre (`decision_de_grupo`).
-- **Informe de investigación (N3)**: solo para lo escalado; el paciente cero se comprueba contra las entidades de las alertas.
+- **Informe de investigación (N3)**: solo para lo escalado; el paciente cero se comprueba contra las entidades de las alertas; `related_incidents` lo calcula el código (`incidentes_relacionados`: entidades compartidas o que salen en los logs del otro caso, citando el evento).
+- **Deduplicación**: en cada lote (web y CLI) las alertas idénticas se trían una vez (`posiciones_duplicadas`); la copia lleva `duplicada_de`.
 - **Endurecimiento**: `ext.logisoft` fuera de L–V 8–18 h y las reglas de severidad crítica **no se cierran** sin autorización verificada (pasan a `needs_more_info`). Motivo: el modelo cerró un ataque en 1 de 2 repeticiones.
 - **Web**: filtros en la cola, etiqueta «Mismo ataque», tarjetas «IA propone / Código decide / Persona decide», corrección humana del veredicto (con nombre y motivo, no cambia lo que calculó el código), alerta original, pantalla `#/registro` de contención y panel del informe N3.
 - **Evaluación**: `scripts/evaluar.py` mide veredicto, severidad y decisión (cerrar/revisar/escalar). Resultados en `evaluacion/resultados-2026-11-07.txt`.
@@ -47,7 +48,7 @@ varias alertas triadas ─► agrupar ─► ticket único del grupo ─► inve
 
 Principios que no se rompen (detalle en «Principios de diseño»): el LLM propone y redacta, **el código decide** severidad, escalado y permisos; el LLM no ejecuta nada; lo que viene de alertas y logs es dato no fiable; desconocido ≠ limpio.
 
-Módulos (`src/`): `soc_client.py` (cliente de la API con caché, traza y búsqueda exacta), `evidencia.py`, `llm.py`, `policy.py`, `ticket.py`, `triaje.py` (`triar`, `triar_en_paralelo`), `agrupar.py`, `investigacion.py`, `contencion.py`, `esquemas/` (esquemas copiados del dataset), `web/` (`api.py` FastAPI + `static/` HTML/CSS/JS sin build; ver [`docs/web.md`](docs/web.md)). Otros: `scripts/evaluar.py`, `scripts/preparar_demo.py`, `evaluacion/` (gold set `casos.json`, 9 alertas inventadas, resultados), `tests/` (166 tests).
+Módulos (`src/`): `soc_client.py` (cliente de la API con caché, traza y búsqueda exacta), `evidencia.py`, `llm.py`, `policy.py`, `ticket.py`, `triaje.py` (`triar`, `triar_en_paralelo`), `agrupar.py`, `investigacion.py`, `contencion.py`, `esquemas/` (esquemas copiados del dataset), `web/` (`api.py` FastAPI + `static/` HTML/CSS/JS sin build; ver [`docs/web.md`](docs/web.md)). Otros: `scripts/evaluar.py`, `scripts/preparar_demo.py`, `evaluacion/` (gold set `casos.json`, 9 alertas inventadas, resultados), `tests/` (171 tests).
 
 Endpoints web que importan: `POST /api/triaje` (SSE), `GET /api/grupos`, `POST /api/resultados/{id}/investigar`, `GET /api/resultados/{id}/informe`, `POST /api/resultados/{id}/decisiones`, `POST /api/resultados/{id}/acciones/{n}/ejecutar`, `GET /api/registro`.
 
@@ -57,7 +58,7 @@ Por orden de importancia para la defensa:
 1. **Ensayo de la demo con persona y cronómetro (dos veces) y vídeo/capturas del plan B.** Guion en [`docs/pitch.md`](docs/pitch.md). Antes: `python -m scripts.preparar_demo --informe` (ver abajo).
 2. **Congelar `main` las 2 últimas horas** (solo arreglos y demo).
 3. Que todo el equipo lea `politica_soc.md`, `empresa_tarvia.md` y los 10 runbooks.
-4. Mejoras opcionales: relacionar incidentes entre sí (`related_incidents` va vacío) y rastrear la cronología por todos los logs (hoy solo usa lo que reunió el triaje); `confidence` no baja con indicadores `unknown` (medido: no merece la pena); revisión humana independiente de las etiquetas del gold set.
+4. Mejoras opcionales: rastrear la cronología por todos los logs (hoy solo usa lo que reunió el triaje); `confidence` no baja con indicadores `unknown` (medido: no merece la pena); revisión humana independiente de las etiquetas del gold set.
 
 **Riesgos conocidos para el domingo** (todos en `docs/limitaciones.md`):
 - El modelo es inestable: puede escalar un falso positivo o dejar un ataque en `needs_more_info`. Tras el endurecimiento no se ha vuelto a cerrar un ataque en las pruebas, pero son reglas concretas, no una garantía.

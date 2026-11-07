@@ -300,6 +300,7 @@ def test_el_informe_de_investigacion_solo_se_genera_para_lo_escalado(cliente, mo
 
     def investigar_falso(ticket, resultados, alertas, **opciones):
         llamadas.append(ticket["ticket_id"])
+        assert [i["incident_id"] for i in opciones["otros_incidentes"]] == ["INC-GRP-20261009-000001"]
         return {"informe": {"incident_id": "INC-1", "alert_ids": ticket["alert_ids"]}, "informe_errores": [], "llm": {}}
 
     monkeypatch.setattr(api, "investigar", investigar_falso)
@@ -317,3 +318,17 @@ def test_no_se_investiga_lo_que_no_esta_escalado(cliente, monkeypatch):
     api._resultados["ALR-1"]["ticket"]["escalation"] = {"escalate": False}
     monkeypatch.setattr(api, "investigar", lambda *a, **k: pytest.fail("no debería investigar"))
     assert cliente.post("/api/resultados/ALR-1/investigar").status_code == 409
+
+
+def test_casos_sospechosos_cuenta_cada_grupo_una_vez_y_marca_lo_que_esta_en_revision():
+    def res(ticket_id, escala, veredicto="true_positive", **extra):
+        return {"ticket": {"ticket_id": ticket_id, "escalation": {"escalate": escala}},
+                "politica": {"veredicto": veredicto}, **extra}
+
+    grupos_ = [{"alert_ids": ["A", "B"], "ticket": {"ticket_id": "TKT-GRP-A", "escalation": {"escalate": True}}}]
+    resultados = {"A": res("TKT-A", True), "B": res("TKT-B", True), "C": res("TKT-C", True),
+                  "D": res("TKT-D", False, "needs_more_info"), "E": res("TKT-E", False, "false_positive"),
+                  "F": res("TKT-C", True, duplicada_de="C")}
+    assert api.casos_sospechosos(resultados, grupos_) == [
+        {"incident_id": "INC-GRP-A", "alert_ids": ["A", "B"]}, {"incident_id": "INC-C", "alert_ids": ["C"]},
+        {"incident_id": "D (en revisión, sin escalar)", "alert_ids": ["D"]}]

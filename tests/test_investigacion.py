@@ -6,6 +6,7 @@ import pytest
 
 from src.agrupar import agrupar, consolidar_grupo
 from src.investigacion import (
+    incidentes_relacionados,
     investigar,
     linea_de_tiempo,
     notificaciones,
@@ -166,3 +167,54 @@ def test_un_cliente_de_la_tienda_o_una_identidad_cloud_tambien_puede_ser_pacient
     cloud = {**alerta(6, "UC-CLD-004"), "entities": {"cloud": {"identity": "backup-sync"}}}
     assert paciente_cero_verificable("Cuenta de cliente C710144", [ato])
     assert paciente_cero_verificable("La identidad backup-sync", [cloud])
+
+
+# --- Relación con otros incidentes ---------------------------------------------------------------
+
+def _triaje(*eventos):
+    return {"evidencia": {"eventos_citados_en_la_alerta": [], "contexto_logs": [{"fuente": "edr_events", "muestra": list(eventos)}]}}
+
+
+VPN = {**alerta(10, "UC-VPN-001", dia=11, hora=1), "entities": {"users": [{"upn": "ext.logisoft@tarvia.example"}], "ips": ["77.90.185.20"]}}
+TUNEL = {**alerta(11, "UC-NET-006", dia=11, hora=2), "entities": {"hosts": [{"hostname": "WMS01", "ip": "10.40.2.10"}]}}
+EVENTO_WMS = {"event_id": "EDR-0123433", "timestamp": "2026-10-11T01:52:00.000Z", "hostname": "WMS01",
+              "user": "TARVIA\\ext.logisoft", "event_type": "service_install"}
+
+
+def test_el_usuario_del_proveedor_en_un_log_del_servidor_relaciona_los_dos_incidentes():
+    """El caso del dataset: las alertas no comparten entidades, pero el EDR de WMS01 nombra a ext.logisoft."""
+    desde_vpn = incidentes_relacionados([VPN], [_triaje()], [{"incident_id": "INC-TUNEL", "alertas": [TUNEL], "triajes": [_triaje(EVENTO_WMS)]}])
+    assert desde_vpn == ["INC-TUNEL: el usuario ext.logisoft@tarvia.example aparece en su evento EDR-0123433"]
+    desde_tunel = incidentes_relacionados([TUNEL], [_triaje(EVENTO_WMS)], [{"incident_id": "INC-VPN", "alertas": [VPN], "triajes": [_triaje()]}])
+    assert desde_tunel == ["INC-VPN: el usuario ext.logisoft@tarvia.example aparece en el evento EDR-0123433 de este incidente"]
+
+
+def test_compartir_entidad_relaciona_y_el_usuario_se_cita_una_vez():
+    a = alerta(1, **host("PC1"), **usuario("ana@tarvia.example"))
+    b = alerta(2, dia=25, **host("PC1"), **usuario("ana@tarvia.example"))
+    rel = incidentes_relacionados([a], [_triaje()], [{"incident_id": "INC-B", "alertas": [b], "triajes": [_triaje()]}])
+    ip = a["entities"]["hosts"][0]["ip"]
+    assert rel == [f"INC-B: comparte el equipo PC1; comparte el usuario ana@tarvia.example; comparte la IP {ip}"]
+
+
+def test_sin_nada_en_comun_no_hay_relacion_y_pc1_no_casa_con_pc10():
+    a = alerta(1, **host("PC1"))
+    b = alerta(2, **host("PC2"))
+    otro = {"incident_id": "INC-B", "alertas": [b], "triajes": [_triaje({"event_id": "E1", "hostname": "PC10"})]}
+    assert incidentes_relacionados([a], [_triaje({"event_id": "E2", "hostname": "PC20"})], [otro]) == []
+
+
+def test_el_informe_lleva_los_incidentes_relacionados_y_no_se_relaciona_consigo_mismo():
+    ticket, resultados, alertas = incidente()
+    suelta = alerta(7, "UC-IDP-001", dia=28, **usuario("ana@tarvia.example"))
+    r = _resultado_de(suelta)
+    r["llm"] = {"analisis": {}}
+    resultados[suelta["alert_id"]], alertas[suelta["alert_id"]] = r, suelta
+    otros = [{"incident_id": "INC-GRP-20261009-000001", "alert_ids": ticket["alert_ids"]},
+             {"incident_id": "INC-SUELTA", "alert_ids": [suelta["alert_id"]]},
+             {"incident_id": "INC-SIN-TRIAR", "alert_ids": ["ALR-NO-EXISTE"]}]
+    salida = investigar(ticket, resultados, alertas, enviar=lambda p: respuesta(REDACCION), otros_incidentes=otros)
+    assert salida["informe"]["related_incidents"] == ["INC-SUELTA: comparte el usuario ana@tarvia.example"]
+    assert salida["informe_errores"] == []
+    sin_otros = investigar(ticket, resultados, alertas, enviar=lambda p: respuesta(REDACCION))
+    assert sin_otros["informe"]["related_incidents"] == []

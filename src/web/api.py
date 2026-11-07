@@ -33,9 +33,9 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from src import llm
-from src.agrupar import agrupar_resultados, posiciones_duplicadas
+from src.agrupar import VEREDICTOS_RELEVANTES, agrupar_resultados, posiciones_duplicadas
 from src.contencion import ErrorContencion, ejecutar_accion, registrar_en_ticket
-from src.investigacion import investigar
+from src.investigacion import id_incidente, investigar
 from src.policy import SEVERIDADES
 from src.soc_client import SOC_API_URL, ErrorSOC, SocClient
 from src.triaje import MAX_PARALELO, PARALELO, cargar_alerta, triar
@@ -358,6 +358,30 @@ def ver_informe(alert_id: str) -> dict[str, Any]:
     return informe
 
 
+def casos_sospechosos(resultados: dict[str, dict[str, Any]], grupos_triados: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Con qué buscar relación en el informe N3: lo que sigue siendo sospechoso tras el triaje.
+
+    Un grupo cuenta como un incidente; una alerta suelta escalada, como otro. Una alerta suelta en
+    revisión (needs_more_info) también entra, marcada como tal: puede ser la pieza que falta (p. ej.,
+    el acceso VPN del proveedor que precede al túnel DNS).
+    """
+    def escalado(t: dict[str, Any]) -> bool:
+        return (t.get("escalation") or {}).get("escalate") is True and bool(t.get("ticket_id"))
+
+    casos = [{"incident_id": id_incidente(g["ticket"]), "alert_ids": g["alert_ids"]}
+             for g in grupos_triados if g["ticket"].get("ticket_id")]
+    en_grupo = {i for g in grupos_triados for i in g["alert_ids"]}
+    for i, r in resultados.items():
+        t = r.get("ticket") or {}
+        if i in en_grupo or r.get("duplicada_de"):
+            continue
+        if escalado(t):
+            casos.append({"incident_id": id_incidente(t), "alert_ids": [i]})
+        elif (r.get("politica") or {}).get("veredicto") in VEREDICTOS_RELEVANTES:
+            casos.append({"incident_id": f"{i} (en revisión, sin escalar)", "alert_ids": [i]})
+    return casos
+
+
 @app.post("/api/resultados/{alert_id}/investigar")
 def investigar_incidente(alert_id: str) -> dict[str, Any]:
     """Genera el informe de investigación (nivel 3) del incidente al que pertenece la alerta.
@@ -368,12 +392,14 @@ def investigar_incidente(alert_id: str) -> dict[str, Any]:
     resultados, alertas = _resultados_y_alertas()
     if alert_id not in resultados:
         raise HTTPException(404, f"No hay resultado guardado para {alert_id}")
-    ticket = next((g["ticket"] for g in agrupar_resultados(resultados, alertas) if alert_id in g["alert_ids"]),
+    grupos_triados = agrupar_resultados(resultados, alertas)
+    ticket = next((g["ticket"] for g in grupos_triados if alert_id in g["alert_ids"]),
                   resultados[alert_id].get("ticket") or {})
     if (ticket.get("escalation") or {}).get("escalate") is not True:
         raise HTTPException(409, "Solo se investigan los incidentes escalados a N2")
     try:
-        salida = investigar(ticket, resultados, alertas, modelo=modelo_efectivo())
+        salida = investigar(ticket, resultados, alertas, modelo=modelo_efectivo(),
+                            otros_incidentes=casos_sospechosos(resultados, grupos_triados))
     except llm.ErrorLLM as e:
         raise HTTPException(502, str(e)) from e
     except ValueError as e:
