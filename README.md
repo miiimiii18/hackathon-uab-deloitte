@@ -1,4 +1,4 @@
-# 🛡️ [Nombre del equipo] — UAB The Hack · Reto Deloitte (Ciber + IA)
+# TEMIPO — UAB The Hack · Reto Deloitte (Ciber + IA)
 
 > Una frase que explique qué hace vuestro proyecto y para quién.
 
