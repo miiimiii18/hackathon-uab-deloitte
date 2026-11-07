@@ -139,11 +139,11 @@ Orden de prioridad. Las fases 2 y 3 (motor y UI) pueden ir **en paralelo** entre
 - [ ] Todos leen `politica_soc.md`, `empresa_tarvia.md` y los 10 runbooks (30 min).
 
 ### Fase 1: Capa de datos y herramientas (≈2 h) — A
-- [ ] `src/soc_client.py`: cliente de la API (alertas, activos, usuarios, logs, intel, sandbox, cambios) con caché y manejo de 404 como "desconocido".
-- [ ] Búsqueda exacta por entidad y ventana temporal ±24 h (filtrar tras `q=`).
-- [ ] Función que marca como **no fiable** cualquier texto de alerta o log antes de dárselo al LLM.
-- [ ] Tipos/modelos (pydantic) para alerta, resultado de enriquecimiento (`malicious|clean|unknown`) y ticket.
-- [ ] Medir tiempos de consulta; decidir si hace falta índice propio.
+- [x] `src/soc_client.py`: cliente de la API (alertas, activos, usuarios, logs, intel, sandbox, cambios) con caché y manejo de 404 como "desconocido". Además, `src/evidencia.py` reúne la evidencia según el runbook y `src/triaje.py` lo une todo.
+- [x] Búsqueda exacta por entidad y ventana temporal ±24 h (filtrar tras `q=`).
+- [x] Función que marca como **no fiable** cualquier texto de alerta o log antes de dárselo al LLM (`marcar_datos_no_fiables` en `src/llm.py`).
+- [ ] Tipos/modelos (pydantic) para alerta, resultado de enriquecimiento (`malicious|clean|unknown`) y ticket. *Hecho para el análisis del LLM; falta el ticket final.*
+- [x] Medir tiempos de consulta; decidir si hace falta índice propio. **Medido: ~2 s por consulta a `/logs` aunque se repita (la API recorre el log entero); 15–45 s de evidencia por alerta. Sí hace falta índice propio (pandas/DuckDB) para ir rápido: tarea pendiente.**
 
 ### Fase 2: Triaje N1 de extremo a extremo (≈4 h) — A
 Empezar por **tres runbooks** que cubran lo más común y después ampliar.

@@ -146,7 +146,17 @@ Acordados en el plan de trabajo (sección 4). Cualquier código nuevo debe respe
 python -m src.main     # ejecutar el proyecto
 pytest -q              # tests
 ruff check .           # linter
+
+# API simulada del SOC (déjala abierta en otra terminal)
+uvicorn mock_soc_api:app --app-dir data/tarvia/06_herramientas --port 8000
+
+# Triaje de una alerta: alerta → evidencia (API) → análisis (Ollama)
+python -m src.triaje ALR-20261005-000301
+python -m src.triaje mi_alerta.json                        # alerta nueva en un fichero
+python -m src.triaje ALR-20261005-000301 --solo-evidencia  # sin LLM
 ```
+
+Piezas del triaje: `src/soc_client.py` (cliente de la API con caché, traza y búsqueda exacta), `src/evidencia.py` (qué se consulta según el runbook) y `src/llm.py` (análisis con el modelo local). Cada consulta a `/logs` tarda unos 2 s porque la API recorre el log entero, así que reunir la evidencia lleva 15–45 s por alerta.
 
 El CI (`.github/workflows/ci.yml`) ejecuta `ruff check .` y `pytest -q` en cada push a `main` y en cada Pull Request. Si alguno falla, el PR no está listo.
 
