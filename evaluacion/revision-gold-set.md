@@ -1,8 +1,8 @@
 # Revisión del gold set (propuesta para el equipo)
 
-Etiquetas propuestas para 33 alertas de la muestra de desarrollo, **a partir de la evidencia** (API del SOC), no de lo que dice el LLM. Están en `evaluacion/casos.json` con `"revisado": false`.
+Etiquetas propuestas para 34 alertas de la muestra de desarrollo, **a partir de la evidencia** (API del SOC), no de lo que dice el LLM. Están en `evaluacion/casos.json` con `"revisado": false`.
 
-**Qué hay que hacer:** leer cada fila y, si no estáis de acuerdo, cambiar `veredictos_validos` en `casos.json` (y poner `"revisado": true` en las que hayáis mirado). Las **3 marcadas con ⚠️** son las que más necesitan vuestra decisión.
+**Qué hay que hacer:** leer cada fila y, si no estáis de acuerdo, cambiar `veredictos_validos` en `casos.json` (y poner `"revisado": true` en las que hayáis mirado). Tras una **segunda pasada con más evidencia** (al final del documento), solo queda **1 caso marcado con ⚠️** que necesita vuestra decisión; en el resto basta con un vistazo.
 
 Criterio de veredictos (Deloitte): `true_positive` = malicioso (aunque se haya bloqueado); `benign_true_positive` = la regla acierta pero hay una **autorización citable** (cambio/flujo vigente); `false_positive` = la regla se equivoca (actividad legítima y rutinaria); `needs_more_info` = la evidencia no basta.
 
@@ -22,6 +22,7 @@ Criterio de veredictos (Deloitte): `true_positive` = malicioso (aunque se haya b
 | ALR-20261018-005422 | WEB-002 | Credential stuffing: 60 logins fallidos en 15 min desde una IP de hosting; 0 éxitos, frenado por rate limit | TP (bloqueado) |
 | ALR-20261011-011807 | WEB-003 | Toma de cuenta de cliente: login headless → cambio de email a `tempmail` → compra de tarjeta regalo con la tarjeta guardada | TP (fraude) |
 | ALR-20261011-011814 | WEB-003 | Mismo patrón, otro cliente | TP (fraude) |
+| ALR-20261018-011895 | IDP-008 | `adm.aortega` añade a **Domain Admins** una cuenta creada 1 minuto antes, desde **PRINT01** (no JUMP01), un **sábado a las 03:13**, sin cambio | TP |
 
 > Fijaos en que `VPN-001` (accesos de Logisoft de madrugada) y `NET-006` (túnel DNS desde `WMS01`, el servidor al que entra Logisoft) **parecen el mismo ataque a lo largo de semanas**: es el tipo de incidente que pide el **nivel 2** (agrupar).
 
@@ -42,26 +43,56 @@ Criterio de veredictos (Deloitte): `true_positive` = malicioso (aunque se haya b
 | ALR-20261005-000059 | NET-005 | «DGA» que es un subdominio de API Gateway de AWS | FP |
 | ALR-20261026-008370 | NET-005 | «DGA» que es un subdominio de Azure CDN | FP |
 | ALR-20261014-004078 | NET-006 | «Túnel DNS» a `e5.sk` desde **296 equipos**, dominio de hace 9 años, respuestas `127.0.0.2`: búsquedas de reputación de un antivirus | FP |
+| ALR-20261101-010863 | CLD-003 | Bucket de medios a lectura pública por Terraform: la **misma policy se aplica cada 3 días** desde el runner de CI (50 veces en el mes) | FP |
+| ALR-20261007-001237 | DLP-001 | `fotos_campaña_navidad_RAW.zip` a WeTransfer: lo suben **58 empleados distintos** en el mes, sin datos personales | FP |
 
 ## Casos con matices
 
 | Alerta | Regla | Qué pasa | Propuesta |
 |---|---|---|---|
-| ALR-20261008-001417 | WEB-001 | Escaneo de `/.env` bloqueado **durante el pentest** (8 oct), pero desde una IP de hosting que **no es del pentest** (el cambio dice 192.0.2.10–12) | TP o FP, **nunca BTP** (trampa) |
-| ALR-20261008-001415 | WEB-001 | Igual (PHPUnit, otra IP) | TP o FP, nunca BTP |
+| ALR-20261008-001417 | WEB-001 | Escaneo de `/.env` bloqueado **durante el pentest** (8 oct), pero desde una IP de hosting que **no es del pentest** (el cambio dice 192.0.2.10–12) | TP, FP o NMI, **nunca BTP** (trampa) |
+| ALR-20261008-001415 | WEB-001 | Igual (PHPUnit, otra IP) | TP, FP o NMI, nunca BTP |
 | ALR-20261014-003674 | EDR-003 | Fichero de prueba EICAR en Descargas, en cuarentena, no ejecutado; sandbox: limpio | FP o BTP |
-| ALR-20261016-004912 | EDR-003 | Adware/PUA (WebCompanion) descargado por un DBA, en cuarentena, no ejecutado | TP (bloqueado) o NMI |
+| ALR-20261016-004912 | EDR-003 | Adware/PUA (WebCompanion) descargado por un DBA, en cuarentena, no ejecutado | TP (bloqueado) o FP |
 | ALR-20261014-003718 | EML-001 | Usuaria reporta el **simulacro de phishing** de RRHH (no hay cambio en el calendario) | BTP o FP |
 
-## ⚠️ Necesitan decisión del equipo
+## ⚠️ Necesita decisión del equipo
 
 | Alerta | Regla | Qué pasa | Propuesta |
 |---|---|---|---|
-| ALR-20261023-011915 | IDP-008 | `adm.aferrer` añade **`adm2.aferrer`** a Backup Operators desde JUMP01, dentro de la ventana del cambio CHG-2026-1078 («nuevo miembro del equipo de sistemas»). Pero `adm2.aferrer` **no existe en el directorio**, no hay evento de creación ni ninguna actividad, y parece una **segunda cuenta de la misma persona**, no un miembro nuevo | NMI o BTP. ¿Autorizado o tapadera? |
-| ALR-20261101-010863 | CLD-003 | Bucket `tarvia-media-public` pasa a lectura pública por Terraform desde el runner de CI interno. Sin cambio en el calendario. Podría ser normal (es un bucket «público» de medios)… o un abuso del CI/CD | FP, BTP o NMI |
-| ALR-20261007-001237 | DLP-001 | Una **analista de fraude** sube 825 MB de `fotos_campaña_navidad_RAW.zip` a WeTransfer; 0 datos personales | FP o NMI |
+| ALR-20261023-011915 | IDP-008 | `adm.aferrer` añade **`adm2.aferrer`** a Backup Operators. Ver los hechos en la segunda pasada | BTP o NMI |
 
 ## Fallos de nuestro código que ha destapado esta revisión (✅ arreglados en `fix/evidencia-cambios`)
 
 1. **`evidencia.py` no busca los cambios que cita la propia alerta.** En `ALR-20261023-011915` la alerta trae `change_ticket: CHG-2026-1078` y la evidencia no lo encontró (solo busca por usuario, host, IP y dominio).
 2. **`policy.py` no comprueba las IPs de origen del cambio.** El pentest (CHG-2026-1042) solo autoriza 192.0.2.10–12; un escaneo de otra IP en esas fechas no está autorizado, pero la política lo aceptaría si el LLM citara el cambio.
+
+## Segunda pasada: hechos a favor y en contra
+
+Investigación con toda la API (no solo ±24 h) sobre los casos dudosos. Lo que aquí se decide ya está aplicado en `casos.json`.
+
+### ⚠️ ALR-20261023-011915 — alta de `adm2.aferrer` en Backup Operators
+El dataset tiene **solo 2 alertas de esta regla** y parecen una **pareja de prueba**:
+
+| | ALR-20261018-011895 | ALR-20261023-011915 |
+|---|---|---|
+| Grupo | Domain Admins | Backup Operators |
+| Quién y desde dónde | `adm.aortega` desde **PRINT01** | `adm.aferrer` desde **JUMP01** (el único permitido) |
+| Cuándo | sábado 03:13 | jueves 11:04 (horario laboral) |
+| Cuenta añadida | `svc_print_upd`, **creada 1 minuto antes** | `adm2.aferrer` |
+| Cambio | ninguno | **CHG-2026-1078** «Alta de operador de copias en Backup Operators», 23-oct 10:00–12:00, dentro de la ventana |
+
+- **A favor de `benign_true_positive`:** cambio aprobado que describe exactamente esta acción, dentro de su ventana; desde JUMP01; en horario; la que lo hace es una administradora real de Tecnología. Todo lo que diferencia al ataque de su pareja está «bien» aquí.
+- **En contra:** `adm2.aferrer` **no está en el directorio**, no hay **ningún evento de creación** (en todo el mes solo hay uno, el de `svc_print_upd`) ni actividad en ningún log; el cambio habla de «un nuevo miembro del equipo» y el nombre parece una segunda cuenta de la misma persona.
+- **Propuesta:** `benign_true_positive` (y aceptar `needs_more_info`). **Decidid vosotros**; también he añadido su pareja de ataque como caso `true_positive`.
+
+### Resueltos con la evidencia
+- **ALR-20261101-010863 (bucket público)** → **FP**. `PutBucketPolicy` con la misma policy («GetObject para Principal *, imágenes…») cada 3 días a las 09:05/10:05 UTC, siempre desde 172.16.10.21 (runner de CI) con Terraform; hay muchas alertas CLD-003 iguales. Es un despliegue programado. *Nota: el modelo lo marcó como `true_positive`; es un error del modelo.*
+- **ALR-20261007-001237 (WeTransfer)** → **FP**. 58 empleados de toda la empresa suben el mismo `fotos_campaña_navidad_RAW.zip` durante el mes, sin coincidencias de datos personales. La analista no tiene eventos de RRHH.
+- **ALR-20261008-001417 / -001415 (escaneos en fechas del pentest)** → **TP, FP o NMI, nunca BTP**. Una sola petición de cada IP en todo el mes, bloqueada (403). Son escaneos oportunistas que coinciden con el pentest pero no son de sus IPs.
+- **ALR-20261014-003674 (EICAR)** → **FP** (o BTP). 64 alertas iguales en el mes en muchos equipos, todas en cuarentena; no hay cambio que lo autorice.
+- **ALR-20261016-004912 (PUA WebCompanion)** → **TP o FP**. 59 alertas iguales, todas en cuarentena y sin ejecutar. La detección es correcta (TP bloqueado), aunque en la práctica sea ruido. Quito `needs_more_info`: no falta información.
+- **ALR-20261014-003718 (simulacro de phishing)** → **FP** (o BTP). 301 correos de `rrhh@tarvia.example` en todo el mes, SPF/DKIM/DMARC correctos, enlace interno y el asunto dice que es un simulacro. No hay cambio en el calendario, así que nuestra política lo dejará en `false_positive`.
+
+### Para la próxima revisión
+Patrón que se repite: **el ruido se reconoce por volumen** (EICAR ×64, WebCompanion ×59, WeTransfer ×58, simulacro ×301, bucket cada 3 días). Ahora el sistema solo mira ±24 h y no sabe que algo pasa todo el mes. Una mejora futura sería darle al modelo un **recuento histórico** («esta misma alerta se ha visto N veces este mes»).
