@@ -156,7 +156,7 @@ Empezar por **tres runbooks** que cubran lo más común y después ampliar.
 
 ### Fase 3: Demo visual (en paralelo desde la hora 2) — B
 La UI es obligatoria, así que se empieza pronto con datos falsos y se conecta al motor cuando esté.
-- [x] Elegir stack rápido (propuesta: **Streamlit** o Gradio; si hay alguien con experiencia en front, FastAPI + HTML/React). **Decidido: Streamlit.**
+- [x] Elegir stack rápido (propuesta: **Streamlit** o Gradio; si hay alguien con experiencia en front, FastAPI + HTML/React). **Decidido: Streamlit.** *Cambiado el 7 nov: web propia (FastAPI + HTML/CSS/JS sin build, en `src/web/`) para diferenciarnos con una UI con animaciones; ver `docs/web.md`.*
 - [ ] **Cola de alertas** filtrable por regla, severidad, veredicto y estado.
 - [ ] **Vista de caso:** alerta original, línea de tiempo de consultas (`trace`), evidencias con su fuente, enriquecimiento, razonamiento de severidad (cómo se aplicó la matriz), veredicto y confianza.
 - [ ] **Panel "Qué decide la IA / qué decide la persona"** visible siempre: la IA propone veredicto, severidad y acciones; la persona acepta, cambia o rechaza.
@@ -173,9 +173,9 @@ La UI es obligatoria, así que se empieza pronto con datos falsos y se conecta a
 
 ### Fase 5: Contención controlada, nivel 4 mínimo (≈2 h) — A + B
 - [x] Mapa veredicto/runbook → acciones propuestas con `requires_approval` correcto. *En `src/policy.py` (`permisos_accion`): el LLM sugiere la acción y el código decide quién la aprueba.*
-- [ ] Flujo UI: botón "Aprobar" → `POST /approvals` (aprobador, motivo) → `POST /containment/{acción}` con el token. `block_ioc` y `purge_email` sin token. *Backend hecho en `src/contencion.py` (`ejecutar_accion`); falta el botón en la UI.*
+- [ ] Flujo UI: botón "Aprobar" → `POST /approvals` (aprobador, motivo) → `POST /containment/{acción}` con el token. `block_ioc` y `purge_email` sin token. *Backend hecho en `src/contencion.py` (`ejecutar_accion`); botón «mantén pulsado para aprobar» hecho en la web (`src/web/`).*
 - [x] Guardas en código: nada sobre OT; no bloquear globalmente mega.nz/AnyDesk; avisar del impacto de negocio al deshabilitar cuentas de servicio o aislar TPV/frontales.
-- [ ] Mostrar `executed_actions` en el ticket y el `containment_log`. *Backend hecho (`registrar_en_ticket`, `SocClient.registro_contencion`); falta mostrarlo en la UI.*
+- [ ] Mostrar `executed_actions` en el ticket y el `containment_log`. *Backend hecho (`registrar_en_ticket`, `SocClient.registro_contencion`); `executed_actions` ya se ve en la web, el `containment_log` completo está en `GET /api/registro` pero aún sin pantalla.*
 
 ### Fase 6: Nivel 3, investigación (solo si N1/N2 están sólidos) — A
 - [ ] Para los tickets escalados, generar informe según `informe_incidente.schema.json`: paciente cero, acceso inicial, timeline con IDs de evento y MITRE, alcance, causa raíz, plan de contención, notificaciones (DPO/AEPD 72 h, PCI, proveedor), huecos de detección.
@@ -278,7 +278,7 @@ Antes del commit, enseñar qué se sube y esperar confirmación. Después, abrir
 ## 8. Decisiones abiertas (hay que cerrarlas en la fase 0)
 
 - [x] **Proveedor y modelos de LLM**, presupuesto y claves. Mi propuesta: modelo pequeño para el volumen y uno grande para ambiguos y escalados. ~~Decidido: modelo local con Ollama (`gpt-oss:20b`).~~ **Decisión final: `ornith`, el modelo que da la organización en las GPU del DCC (API compatible con OpenAI, gratis, clave del equipo en `.env`).** Con Ollama, `gpt-oss:20b` tardaba 50–90 s por alerta y `qwen3:8b` ~107 s y acertaba menos; `ornith` responde a ~76 tokens/s. Sin plan B local.
-- [x] **Stack de UI** (Streamlit vs. front propio). **Decidido: Streamlit.**
+- [x] **Stack de UI** (Streamlit vs. front propio). **Decidido: Streamlit.** *Cambiado el 7 nov a front propio: ver `docs/web.md`.*
 - [x] **Reparto de áreas** entre las personas del equipo. **Decidido: todos hacemos de todo.**
 - [ ] ¿Usamos consultas OSINT reales (VirusTotal, AbuseIPDB…)? Dan realismo, pero cuestan tiempo y cuota. Solo reputación; nunca visitar los IOC.
 - [ ] ¿Triajeamos las 11.061 alertas o un subconjunto? Propuesta: muestra de 150 + las 445 de reglas raras + las que entren en grupos con ellas, y el resto por camino determinista.

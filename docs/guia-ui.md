@@ -1,5 +1,7 @@
 # Guía para construir la interfaz (Streamlit)
 
+> **Actualización:** la interfaz se ha hecho como web propia, no con Streamlit. Cómo arrancarla y cómo está hecha: [`docs/web.md`](web.md). Esta guía sigue siendo válida para lo que debe enseñar la UI (sección 1), la estructura de `triar()` (sección 4) y los casos de demo (sección 8). Las secciones 2, 6 y 7 (puesta en marcha, código y trucos de Streamlit) ya no se usan.
+
 Guía para quien haga la UI (Pol) **y para su Claude**. El backend del triaje ya está hecho y probado; esta guía explica cómo usarlo desde Streamlit sin tocarlo. Lee también `CLAUDE.md` (reglas del repo, principios de diseño y briefing del reto).
 
 > **Regla de oro:** la UI **muestra** lo que decide el backend; **no recalcula nada**. La severidad, el veredicto final, el escalado y quién aprueba cada acción ya vienen calculados en `politica` / `ticket`. Si la UI necesita un dato que no está, se añade en el backend (en otra rama), no en la UI.

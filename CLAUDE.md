@@ -12,7 +12,7 @@ Contexto e instrucciones para Claude Code en este repositorio.
 - **Prioridad:** el tiempo es limitado. Preferimos soluciones que funcionen y se puedan enseñar en una demo antes que código perfecto.
 - **Plan de trabajo:** [`docs/plan-de-trabajo.md`](docs/plan-de-trabajo.md) es la hoja de ruta del equipo (fases, reparto, arquitectura y decisiones abiertas). Antes de proponer o empezar una tarea, mira en qué fase estamos.
 - **Organización:** no hay áreas fijas, todos hacemos de todo. Para no pisarnos, antes de empezar una tarea avisad al equipo (o cread un issue con la plantilla «Tarea») y trabajad cada uno en su propia rama.
-- **Demo:** la interfaz visual se hace con Streamlit. **Si vas a trabajar en la UI, lee primero [`docs/guia-ui.md`](docs/guia-ui.md)**: qué debe enseñar, funciones del backend, estructura exacta del resultado, pantallas y código de partida.
+- **Demo:** la interfaz es una web propia (FastAPI + HTML/CSS/JS sin build), no Streamlit. **Si vas a trabajar en la UI, lee primero [`docs/web.md`](docs/web.md)** (cómo arrancarla y cómo está hecha). [`docs/guia-ui.md`](docs/guia-ui.md) sigue valiendo para la estructura exacta del resultado de `triar()` y las reglas de la UI; su código de Streamlit ya no se usa.
 
 ## Briefing del reto
 
