@@ -1,11 +1,12 @@
-"""Cliente del LLM local (Ollama) para el triaje N1.
+"""Cliente del LLM para el triaje N1.
 
 Qué hace este módulo y qué NO hace (ver «Principios de diseño» en CLAUDE.md):
 - Recibe una alerta y la evidencia que el código ya ha reunido (activo, usuario,
-  logs filtrados, inteligencia...) y pide al modelo local un análisis en JSON.
-- El modelo corre en Ollama (gratis, en el portátil con gráfica NVIDIA). Ningún
-  dato sale del ordenador.
-- La respuesta se valida con pydantic. Si no cumple el formato, se le pide al
+  logs filtrados, inteligencia...) y pide al modelo un análisis en JSON.
+- El modelo es `ornith`, servido por la organización en las GPU del DCC (UAB) con
+  una API compatible con OpenAI. Es gratis y la clave es del equipo (va en .env).
+- La API obliga al modelo a responder con el esquema JSON, y además la respuesta
+  se valida con pydantic. Si no cumple el formato, se le pide al
   modelo que la corrija una vez; si sigue mal, se lanza ErrorLLM.
 - NO calcula la severidad final ni decide permisos de contención: eso va en código
   (src/policy.py). El modelo solo aporta veredicto, confianza, argumentación y las
@@ -13,9 +14,9 @@ Qué hace este módulo y qué NO hace (ver «Principios de diseño» en CLAUDE.m
 - Todo lo que viene de alertas y logs se marca como DATOS NO FIABLES: el atacante
   puede haber escrito instrucciones dentro (prompt injection).
 
-Uso rápido (necesita Ollama arrancado, el modelo descargado y el dataset en data/tarvia):
-    ollama pull gpt-oss:20b
-    python -m src.llm ALR-20261005-000301
+Uso rápido (necesita LLM_API_KEY en .env y el dataset en data/tarvia):
+    python -m src.llm ALR-20261005-000301          # solo la alerta, sin evidencia
+    python -m src.triaje ALR-20261005-000301       # con evidencia (recomendado)
 """
 
 from __future__ import annotations
@@ -36,21 +37,24 @@ load_dotenv()
 
 # --- Configuración (se puede cambiar en .env sin tocar el código) -------------
 
-# Dirección de Ollama. Si el modelo corre en el portátil de otra persona de la misma
-# red, poned aquí su IP (p. ej., http://192.168.1.50:11434).
-# 127.0.0.1 y no «localhost»: en Windows, «localhost» puede añadir ~2 s a cada petición.
-OLLAMA_URL = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/")
-MODELO_POR_DEFECTO = os.getenv("LLM_MODEL", "gpt-oss:20b")
-# Tamaño del contexto en tokens. Tiene que caber el prompt fijo (~4.000 tokens), la
-# alerta con su evidencia y la respuesta. Más grande = más memoria de la gráfica.
-NUM_CTX = int(os.getenv("LLM_NUM_CTX", "16384"))
-# Cuánto «piensa» el modelo antes de responder. En gpt-oss: low | medium | high.
-# En otros modelos (p. ej., qwen3): true | false. Vacío = lo que traiga el modelo.
-PENSAR = os.getenv("LLM_THINK", "").strip()
-# Segundos máximos por petición. Si parte del modelo va a la RAM, es lento.
-TIMEOUT = float(os.getenv("LLM_TIMEOUT", "600"))
+# API del DCC (compatible con OpenAI). La clave es del equipo: solo en .env, nunca en git.
+BASE_URL = os.getenv("LLM_BASE_URL", "https://dcc-llm-gw.uab.cat/uabthehack/v1").rstrip("/")
+# La guía del DCC llama a la clave UTH_KEY; aceptamos los dos nombres.
+API_KEY = os.getenv("LLM_API_KEY") or os.getenv("UTH_KEY", "")
+MODELO_POR_DEFECTO = os.getenv("LLM_MODEL", "ornith")
+# Máximo de tokens de respuesta (el de ornith es 32.768). Incluye el razonamiento
+# interno, así que NO hay que ponerlo bajo: la guía avisa que la respuesta sale vacía.
+MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "32000"))
+# ¿Razona el modelo antes de responder? Por defecto NO: medido con 5 alertas, sin
+# razonar tarda ~11 s por alerta y razonando ~98 s (miles de tokens), con veredictos
+# casi iguales. La guía del DCC explica cómo desactivarlo.
+RAZONAR = os.getenv("LLM_THINKING", "false").strip().lower() in ("true", "1", "si", "sí", "yes")
+TIMEOUT = float(os.getenv("LLM_TIMEOUT", "300"))
 RUTA_DATASET = Path(os.getenv("TARVIA_PATH", "data/tarvia"))
 REINTENTOS_FORMATO = 1
+# El servidor lo comparten todos los equipos: si está saturado (429/5xx), se reintenta.
+REINTENTOS_RED = 2
+CODIGOS_REINTENTABLES = {429, 500, 502, 503, 504}
 
 ACCIONES_CONTENCION = (
     "isolate_host",
@@ -136,7 +140,7 @@ class AnalisisLLM(BaseModel):
 def _esquema_estricto(modelo: type[BaseModel]) -> dict[str, Any]:
     """Convierte un modelo pydantic a un JSON Schema simple y autocontenido.
 
-    Ollama usa este esquema para obligar al modelo a responder con ese formato.
+    La API usa este esquema para obligar al modelo a responder con ese formato.
     Cada objeto lleva `additionalProperties: false` y todos sus campos en
     `required`. Las restricciones numéricas (p. ej., confidence entre 0 y 1) las
     comprueba pydantic después, al validar la respuesta.
@@ -188,14 +192,19 @@ DESCONOCIDO, no limpio.
 5. Decide el veredicto y tu confianza (0 a 1).
 
 Veredictos (criterio de Deloitte):
-- true_positive: es malicioso. Ej.: un adjunto JS ejecutado que abre un canal con el atacante.
+- true_positive: es malicioso. Ej.: un adjunto JS ejecutado que abre un canal con el atacante. \
+Un ataque o intento de ataque REAL sigue siendo true_positive aunque un control lo haya \
+bloqueado y no haya tenido efecto (p. ej., un escaneo desde Internet bloqueado por el \
+WAF). En ese caso marca bloqueado_sin_actividad_posterior: el sistema ya bajará la \
+severidad. Que «no haya hecho daño» NO lo convierte en false_positive.
 - benign_true_positive: la regla acierta, pero la actividad tiene una AUTORIZACIÓN \
 EXPLÍCITA Y CITABLE: un cambio aprobado del calendario de cambios (CHG-...), un flujo \
 autorizado o una regla interna de empresa_tarvia.md (p. ej., el pentest contratado del \
 8 al 10 de octubre, la ventana de escaneo de NESSUS01, el envío de nóminas a la \
 gestoría, el acceso de ext.logisoft en su horario). Ej.: el pentest contratado dispara \
 el WAF. Pon esa autorización concreta en referencia_autorizacion.
-- false_positive: la regla se equivoca: la actividad es legítima y rutinaria, pero NO \
+- false_positive: la regla se equivoca: lo detectado no es un ataque (no ocurrió o no \
+es lo que la regla busca). La actividad es legítima y rutinaria, pero NO \
 hay una autorización explícita que citar (agentes del sistema, inventarios, \
 actualizaciones, software de gestión habitual...). Ej.: el inventario de software \
 (SCCM, padre CcmExec.exe) usa PowerShell codificado → false_positive, no \
@@ -236,9 +245,9 @@ FICHEROS_CONTEXTO = ("empresa_tarvia.md", "politica_soc.md")
 def construir_system(ruta_dataset: Path = RUTA_DATASET) -> str:
     """Instrucciones + esquema de respuesta + contexto fijo de Tarvia.
 
-    Es igual para todas las alertas. Ollama reaprovecha el procesado de un prompt
-    que empieza igual que el anterior, así que conviene no meter aquí nada que
-    cambie entre alertas (fechas, IDs...).
+    Es igual para todas las alertas. El servidor puede reaprovechar el procesado de
+    un prompt que empieza igual que el anterior (caché de prompts), así que conviene
+    no meter aquí nada que cambie entre alertas (fechas, IDs...).
     """
     partes = [INSTRUCCIONES + json.dumps(ESQUEMA_RESPUESTA, ensure_ascii=False)]
     for nombre in FICHEROS_CONTEXTO:
@@ -259,7 +268,7 @@ def marcar_datos_no_fiables(datos: Any) -> str:
     (p. ej., un asunto de correo que contenga «</datos_no_fiables>»).
     """
     # JSON compacto (sin sangría ni espacios): los espacios y saltos de línea también
-    # gastan tokens del contexto, que en el modelo local es limitado.
+    # gastan tokens: peticiones más pequeñas son más rápidas.
     texto = json.dumps(datos, ensure_ascii=False, separators=(",", ":"), default=str)
     texto = texto.replace(f"</{ETIQUETA}", f"<\\/{ETIQUETA}").replace(f"<{ETIQUETA}", f"<\\{ETIQUETA}")
     return f"<{ETIQUETA}>\n{texto}\n</{ETIQUETA}>"
@@ -274,7 +283,7 @@ def _quitar_marcas_de_codigo(texto: str) -> str:
     return texto.strip()
 
 
-# --- Llamada a Ollama ---------------------------------------------------------------
+# --- Llamada a la API ---------------------------------------------------------------
 
 
 class ResultadoLLM(BaseModel):
@@ -284,30 +293,49 @@ class ResultadoLLM(BaseModel):
     modelo: str
     tokens_entrada: int
     tokens_salida: int
+    tokens_razonamiento: int
     intentos: int
     segundos: float
 
 
-def llamar_ollama(peticion: dict[str, Any]) -> dict[str, Any]:
-    """Envía la petición a /api/chat de Ollama y devuelve la respuesta en JSON."""
-    try:
-        r = requests.post(f"{OLLAMA_URL}/api/chat", json=peticion, timeout=TIMEOUT)
-    except requests.ConnectionError as e:
-        raise ErrorLLM(
-            f"No hay conexión con Ollama en {OLLAMA_URL}. ¿Está arrancado y la URL es correcta?"
-        ) from e
-    except requests.Timeout as e:
-        raise ErrorLLM(f"Ollama tardó más de {TIMEOUT:.0f} s en responder (LLM_TIMEOUT)") from e
-    if r.status_code == 404:
-        modelo = peticion["model"]
-        raise ErrorLLM(f"El modelo {modelo} no está descargado. Ejecuta: ollama pull {modelo}")
-    if r.status_code != 200:
-        raise ErrorLLM(f"Error de Ollama ({r.status_code}): {r.text[:300]}")
-    return r.json()
+def _sin_clave(texto: str) -> str:
+    """Por si acaso, nunca mostramos la clave en un mensaje de error."""
+    return texto.replace(API_KEY, "<clave>") if API_KEY else texto
 
 
-def _valor_pensar(valor: str) -> bool | str:
-    return {"true": True, "false": False}.get(valor.lower(), valor)
+def llamar_api(peticion: dict[str, Any]) -> dict[str, Any]:
+    """Envía la petición a /chat/completions y devuelve la respuesta en JSON.
+
+    Si el servidor está saturado (429 o 5xx) o falla la conexión, reintenta un par
+    de veces esperando un poco más cada vez.
+    """
+    if not API_KEY:
+        raise ErrorLLM("Falta la clave: pon LLM_API_KEY en .env")
+    cabeceras = {"Authorization": f"Bearer {API_KEY}"}
+    for intento in range(REINTENTOS_RED + 1):
+        ultimo = intento == REINTENTOS_RED
+        try:
+            r = requests.post(f"{BASE_URL}/chat/completions", headers=cabeceras, json=peticion, timeout=TIMEOUT)
+        except requests.Timeout as e:
+            raise ErrorLLM(f"El LLM tardó más de {TIMEOUT:.0f} s en responder (LLM_TIMEOUT)") from e
+        except requests.ConnectionError as e:
+            if ultimo:
+                raise ErrorLLM(f"No hay conexión con la API del LLM en {BASE_URL}") from e
+            time.sleep(2 * (intento + 1))
+            continue
+        if r.status_code in CODIGOS_REINTENTABLES and not ultimo:
+            time.sleep(2 * (intento + 1))
+            continue
+        if r.status_code in (401, 403):
+            raise ErrorLLM("La API rechaza la clave: revisa LLM_API_KEY en .env")
+        if r.status_code == 404:
+            raise ErrorLLM(f"No existe el modelo «{peticion['model']}» o la URL: revisa LLM_MODEL y LLM_BASE_URL")
+        if r.status_code == 429:
+            raise ErrorLLM("Demasiadas peticiones: el servidor del DCC está saturado, espera un poco")
+        if r.status_code != 200:
+            raise ErrorLLM(_sin_clave(f"Error de la API del LLM ({r.status_code}): {r.text[:300]}"))
+        return r.json()
+    raise ErrorLLM("No se pudo contactar con la API del LLM")  # no se llega aquí
 
 
 def analizar_alerta(
@@ -316,14 +344,15 @@ def analizar_alerta(
     *,
     enviar: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
     modelo: str | None = None,
+    razonar: bool | None = None,
 ) -> ResultadoLLM:
-    """Pide al modelo local el análisis de una alerta y devuelve el resultado validado.
+    """Pide al LLM el análisis de una alerta y devuelve el resultado validado.
 
     `evidencia` es lo que el código ha reunido antes (activo, usuario, logs ±24 h,
     intel...). Se pasa tal cual, marcado como datos no fiables.
-    `enviar` permite sustituir la llamada a Ollama (los tests usan uno falso).
+    `enviar` permite sustituir la llamada a la API (los tests usan uno falso).
     """
-    enviar = enviar or llamar_ollama
+    enviar = enviar or llamar_api
     modelo = modelo or MODELO_POR_DEFECTO
 
     mensajes: list[dict[str, str]] = [
@@ -337,26 +366,31 @@ def analizar_alerta(
     peticion: dict[str, Any] = {
         "model": modelo,
         "messages": mensajes,
-        "stream": False,
-        "format": ESQUEMA_RESPUESTA,
+        # Salida estructurada: la API obliga al modelo a seguir el esquema JSON.
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": {"name": "analisis_triaje", "schema": ESQUEMA_RESPUESTA, "strict": True},
+        },
         # temperature 0: respuestas lo más repetibles posible para el mismo caso.
-        "options": {"temperature": 0, "num_ctx": NUM_CTX},
+        "temperature": 0,
+        "max_tokens": MAX_TOKENS,
     }
-    if PENSAR:
-        peticion["think"] = _valor_pensar(PENSAR)
+    if not (RAZONAR if razonar is None else razonar):
+        peticion["chat_template_kwargs"] = {"enable_thinking": False}
 
-    tokens_entrada = tokens_salida = 0
+    tokens_entrada = tokens_salida = tokens_razonamiento = 0
     inicio = time.perf_counter()
     for intento in range(1, REINTENTOS_FORMATO + 2):
         respuesta = enviar(peticion)
-        tokens_entrada += respuesta.get("prompt_eval_count", 0)
-        tokens_salida += respuesta.get("eval_count", 0)
-        if respuesta.get("done_reason") == "length":
-            raise ErrorLLM(
-                "La respuesta se cortó por falta de contexto: sube LLM_NUM_CTX o reduce la evidencia"
-            )
+        uso = respuesta.get("usage") or {}
+        tokens_entrada += uso.get("prompt_tokens", 0)
+        tokens_salida += uso.get("completion_tokens", 0)
+        tokens_razonamiento += (uso.get("completion_tokens_details") or {}).get("reasoning_tokens") or 0
+        eleccion = (respuesta.get("choices") or [{}])[0]
+        if eleccion.get("finish_reason") == "length":
+            raise ErrorLLM("La respuesta se cortó por longitud: sube LLM_MAX_TOKENS o reduce la evidencia")
 
-        texto = _quitar_marcas_de_codigo(respuesta.get("message", {}).get("content", ""))
+        texto = _quitar_marcas_de_codigo((eleccion.get("message") or {}).get("content") or "")
         try:
             analisis = AnalisisLLM.model_validate_json(texto)
         except ValidationError as e:
@@ -377,6 +411,7 @@ def analizar_alerta(
             modelo=respuesta.get("model", modelo),
             tokens_entrada=tokens_entrada,
             tokens_salida=tokens_salida,
+            tokens_razonamiento=tokens_razonamiento,
             intentos=intento,
             segundos=round(time.perf_counter() - inicio, 1),
         )

@@ -277,7 +277,7 @@ Antes del commit, enseñar qué se sube y esperar confirmación. Después, abrir
 
 ## 8. Decisiones abiertas (hay que cerrarlas en la fase 0)
 
-- [x] **Proveedor y modelos de LLM**, presupuesto y claves. Mi propuesta: modelo pequeño para el volumen y uno grande para ambiguos y escalados. **Decidido: modelo local con Ollama (`gpt-oss:20b` por defecto), sin APIs de pago.** Corre en el portátil con la RTX 4060 (8 GB); lo que no cabe en la gráfica va a la RAM. Si es demasiado lento, se cambia a un modelo de 7–8B (`LLM_MODEL` en `.env`).
+- [x] **Proveedor y modelos de LLM**, presupuesto y claves. Mi propuesta: modelo pequeño para el volumen y uno grande para ambiguos y escalados. ~~Decidido: modelo local con Ollama (`gpt-oss:20b`).~~ **Decisión final: `ornith`, el modelo que da la organización en las GPU del DCC (API compatible con OpenAI, gratis, clave del equipo en `.env`).** Con Ollama, `gpt-oss:20b` tardaba 50–90 s por alerta y `qwen3:8b` ~107 s y acertaba menos; `ornith` responde a ~76 tokens/s. Sin plan B local.
 - [x] **Stack de UI** (Streamlit vs. front propio). **Decidido: Streamlit.**
 - [x] **Reparto de áreas** entre las personas del equipo. **Decidido: todos hacemos de todo.**
 - [ ] ¿Usamos consultas OSINT reales (VirusTotal, AbuseIPDB…)? Dan realismo, pero cuestan tiempo y cuota. Solo reputación; nunca visitar los IOC.
