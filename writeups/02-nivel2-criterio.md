@@ -2,7 +2,7 @@
 
 - **Categoría:** IA + ciberseguridad (SOC)
 - **Responsable:** todo el equipo TEMIPO
-- **Estado:** 🟡 parcial (matriz y descarte de autorizaciones hechos; agrupación pendiente)
+- **Estado:** 🟢 resuelto en lo esencial (matriz, descarte de autorizaciones y agrupación); la deduplicación automática y la búsqueda de alertas relacionadas fuera de la cola quedan pendientes
 - **Resultado:** autorizaciones 15/15 y matices 9/9 en el gold set; ningún ataque inventado se cierra como falso positivo.
 
 ## Enunciado
@@ -15,8 +15,15 @@ Agrupar alertas del mismo ataque, aplicar la matriz de severidad con la criticid
 4. **Reglas duras:** equipos que hablan con OT distintos de ENG-WS01/WMS01 y cuentas `adm.*` fuera de JUMP01 no se pueden cerrar sin cambio verificado.
 5. **Escalado obligatorio** a N2 con sus motivos: TP high/critical, ejecución confirmada, datos personales o pagos, fraude.
 
+## Agrupación (`src/agrupar.py`)
+1. **Qué une dos alertas:** una entidad en común (usuario, equipo, IP, dominio, hash, cliente, identidad cloud, `message_id`) y cercanía en el tiempo: 30 días si es una cuenta o un equipo (un compromiso dura semanas), 3 días si es IP, dominio o hash (se reutilizan por casualidad).
+2. **Qué evita fusionar todo:** las entidades que aparecen en más de 12 alertas se ignoran, y solo se agrupan las alertas que tras el triaje son `true_positive` o `needs_more_info`. Sin ese filtro, las reglas de mucho ruido unen todas las alertas de un mismo usuario.
+3. **Un ticket por grupo** (`consolidar_grupo`): `alert_ids` de todo el grupo, la mayor severidad de sus alertas (sin sumar otro ajuste, para no pasar del ±1 total), escalado obligatorio por cadena de ataque (`decision_de_grupo` en `src/policy.py`) y acciones sin repetir.
+4. **Prueba con el dataset completo:** quitando las 9 reglas ruidosas como sustituto del triaje, salen 22 grupos de 2 a 18 alertas que corresponden a incidentes reales (cadena de Latrodectus, accesos de un proveedor externo, túnel DNS, toma de cuenta de clientes, phishing de SSO).
+5. **Prueba de extremo a extremo:** 5 alertas del phishing de SSO triadas con el LLM dan 1 ticket crítico escalado y válido contra el esquema.
+
 ## Pendiente
-- Deduplicar (~920 alertas exactas repetidas) y agrupar alertas por entidades compartidas en un único ticket, incluidas las de días o semanas distintas.
+- Conectar `deduplicar()` (quita las ~920 alertas exactas repetidas) a la carga de alertas, y buscar alertas relacionadas fuera de la cola.
 
 ## Lo que aprendimos
 - Citar un cambio de palabra no basta: el texto lo puede escribir el atacante.

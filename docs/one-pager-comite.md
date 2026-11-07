@@ -29,13 +29,13 @@ La IA **no ejecuta nada por su cuenta**. Aislar un equipo o desactivar una cuent
 
 ## Qué no resuelve
 - El acierto es una estimación sobre pocos casos y sin revisión externa: puede equivocarse, y a veces da respuestas distintas ante la misma alerta.
-- Todavía no agrupa las alertas de un mismo ataque repartido en varios días ni reconstruye su cronología completa.
+- Agrupa en un solo caso las alertas relacionadas que están en la cola, pero no busca por su cuenta otras alertas del mismo ataque ni reconstruye su cronología completa.
 - Depende de que el inventario y la inteligencia de amenazas estén al día. Un dato desconocido no se considera seguro.
 - No se ha probado con el volumen real de un SOC (miles de alertas al día).
 - No sustituye al analista: reduce el ruido y le entrega el caso preparado.
 
 ## Siguientes pasos propuestos
 1. Revisión de las conclusiones por analistas de Tarvia para medir el acierto real.
-2. Agrupar alertas relacionadas en un único caso y reconstruir su cronología.
+2. Buscar automáticamente otras alertas relacionadas con cada caso y reconstruir su cronología.
 3. Conectar con la inteligencia externa y probar con el volumen real.
 4. Piloto en paralelo con el equipo humano antes de usarlo en producción.
