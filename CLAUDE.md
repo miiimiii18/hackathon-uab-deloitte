@@ -115,7 +115,7 @@ Cosas que hay que saber de la API (comprobado en su código):
 
 Acordados en el plan de trabajo (sección 4). Cualquier código nuevo debe respetarlos:
 
-- **LLM local y gratuito.** El equipo ha decidido no usar APIs de pago: el modelo corre en local con [Ollama](https://ollama.com) (`gpt-oss:20b` por defecto, en el portátil con la RTX 4060 de 8 GB). El cliente es `src/llm.py` y se configura en `.env` (`OLLAMA_URL`, `LLM_MODEL`...). Al ser un modelo pequeño, el código tiene que darle la evidencia ya filtrada y resumida.
+- **LLM de la organización, gratuito.** El modelo es `ornith`, servido por la organización en las GPU del DCC (UAB) con una API compatible con OpenAI (`https://dcc-llm-gw.uab.cat/uabthehack/v1`). El cliente es `src/llm.py` y se configura en `.env` (`LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`). **La clave es del equipo: solo en `.env`, nunca en git ni en el chat.** No se usan APIs de pago ni modelos locales (se probaron `gpt-oss:20b` y `qwen3:8b` con Ollama: eran 5–10 veces más lentos y acertaban menos). El servidor lo comparten todos los equipos, así que el cliente reintenta si está saturado. **Por defecto el modelo no razona** (`LLM_THINKING=false`): con 5 alertas de prueba, sin razonar tarda ~13 s por alerta y acierta las 5; razonando tarda ~100 s (hasta 170 s) sin acertar más. Guía oficial: `ornith` = Ornith 1.5 (35B MoE, 3B activos), 262.144 tokens de contexto, salida máxima 32.768, sin límites de uso.
 - **Código para lo determinista, LLM para razonar y redactar.** La severidad (matriz y ajustes ±1), el escalado obligatorio y los permisos de contención van en código (`src/policy.py`), con tests, y nunca en el prompt. El LLM propone el veredicto, la confianza y la argumentación.
 - **El LLM no ejecuta acciones.** Las acciones se construyen en código a partir del veredicto y las aprueba una persona. Nunca se actúa sobre la red OT.
 - **Datos no fiables delimitados.** Todo lo que viene de alertas y logs se pasa al LLM marcado como datos, y la salida del LLM es JSON validado contra el schema.
@@ -150,7 +150,7 @@ ruff check .           # linter
 # API simulada del SOC (déjala abierta en otra terminal)
 uvicorn mock_soc_api:app --app-dir data/tarvia/06_herramientas --port 8000
 
-# Triaje de una alerta: alerta → evidencia (API) → análisis (Ollama)
+# Triaje de una alerta: alerta → evidencia (API del SOC) → análisis (LLM del DCC)
 python -m src.triaje ALR-20261005-000301
 python -m src.triaje mi_alerta.json                        # alerta nueva en un fichero
 python -m src.triaje ALR-20261005-000301 --solo-evidencia  # sin LLM
@@ -158,7 +158,7 @@ python -m src.triaje ALR-20261005-000301 --solo-evidencia  # sin LLM
 
 Piezas del triaje: `src/soc_client.py` (cliente de la API con caché, traza y búsqueda exacta), `src/evidencia.py` (qué se consulta según el runbook) y `src/llm.py` (análisis con el modelo local). Reunir la evidencia lleva ~1 s por alerta; casi todo el tiempo del triaje es del modelo.
 
-**Usad siempre `127.0.0.1` y no `localhost`** en las URLs (`SOC_API_URL`, `OLLAMA_URL`): en Windows, `localhost` prueba primero IPv6, la API solo escucha en IPv4 y cada petición pierde ~2 s. Con `localhost` la evidencia tardaba 20–40 s; con `127.0.0.1`, ~1 s.
+**Usad siempre `127.0.0.1` y no `localhost`** en la URL de la API del SOC (`SOC_API_URL`): en Windows, `localhost` prueba primero IPv6, la API solo escucha en IPv4 y cada petición pierde ~2 s. Con `localhost` la evidencia tardaba 20–40 s; con `127.0.0.1`, ~1 s.
 
 El CI (`.github/workflows/ci.yml`) ejecuta `ruff check .` y `pytest -q` en cada push a `main` y en cada Pull Request. Si alguno falla, el PR no está listo.
 
