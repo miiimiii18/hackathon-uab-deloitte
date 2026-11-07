@@ -28,6 +28,7 @@ No hay `npm`, ni build, ni fuentes ni recursos de terceros: todo es estático y 
 |---|---|
 | **Cola** (`#/`) | Las 10 alertas de la guía (`COLA_INICIAL` en `src/web/api.py`). «Triar las N» las tría en paralelo y cada fila avanza por Evidencia → IA → Política → Persona según el servidor avisa. Filtros por regla, severidad, veredicto y estado. Las alertas triadas que forman un mismo ataque llevan la etiqueta «Mismo ataque · N alertas». |
 | **Detalle** (`#/alerta/ID`) | Qué ha consultado (`traza`), en qué se basa (`evidencia`), qué propone la IA (`llm.analisis`), qué decide la política (`politica`) y la decisión de la persona (acciones del ticket). |
+| **Informe de investigación** (panel del detalle) | Solo en lo escalado. «Generar informe» pide al servidor el informe del nivel 3 (línea de tiempo con eventos reales, alcance, causa raíz, contención propuesta, a quién avisar...) y lo guarda en `data/out/web/informes/`. |
 | **Registro** (`#/registro`) | Acciones ejecutadas en la API simulada (`containment_log`): cuándo, acción, objetivo, ticket, token de aprobación y resultado. |
 | **Cargar alertas** (panel lateral) | Pegar JSON (uno, lista o JSONL), subir `.json`/`.jsonl` o elegir de la muestra del dataset. Valida los campos `alert_id`, `rule_id`, `severity`, `created_at` y `entities` antes de enviar. |
 
@@ -49,6 +50,8 @@ Cada triaje se guarda en `data/out/web/<alert_id>.json`. Con «Modo demo» activ
 | `POST /api/resultados/{id}/decisiones` | Anota cerrar, pasar a N2, rechazar una acción o corregir el veredicto/severidad (`corregir`, con nombre y motivo); no recalcula nada |
 | `GET /api/registro` | `containment_log` de la API simulada |
 | `GET /api/alertas/{id}/original` | La alerta tal como llegó (la del resultado o la del dataset) |
+| `POST /api/resultados/{id}/investigar` | Genera el informe del nivel 3 del incidente de esa alerta (del grupo entero si lo hay). 409 si no está escalado |
+| `GET /api/resultados/{id}/informe` | El último informe guardado de esa alerta (404 si no hay) |
 | `GET /api/grupos` | Alertas triadas del mismo ataque, cada grupo con su ticket único |
 
 La documentación interactiva está en `/api/docs`.
