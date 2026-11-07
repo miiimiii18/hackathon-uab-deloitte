@@ -31,7 +31,9 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from src import llm
+from src.agrupar import agrupar_resultados
 from src.contencion import ErrorContencion, ejecutar_accion, registrar_en_ticket
+from src.policy import SEVERIDADES
 from src.soc_client import SOC_API_URL, ErrorSOC, SocClient
 from src.triaje import MAX_PARALELO, PARALELO, cargar_alerta, triar
 
@@ -49,7 +51,8 @@ COLA_INICIAL = [
     "ALR-20261023-011915", "ALR-20261009-001917",
 ]
 CAMPOS_OBLIGATORIOS = ("alert_id", "rule_id", "severity", "created_at", "entities")
-DECISIONES_HUMANAS = {"cerrar", "escalar_n2", "rechazar_accion"}
+DECISIONES_HUMANAS = {"cerrar", "escalar_n2", "rechazar_accion", "corregir"}
+VEREDICTOS = ("true_positive", "benign_true_positive", "false_positive", "needs_more_info")
 
 LOG = logging.getLogger("uvicorn.error")
 PULSO = 8  # segundos sin novedades antes de mandar un pulso por el flujo SSE
@@ -60,6 +63,7 @@ app = FastAPI(title="TEMIPO · Triaje N1", docs_url="/api/docs", openapi_url="/a
 _cerrojo = threading.RLock()
 _modelos: dict[str, Any] = {"hasta": 0.0, "ids": None}
 _indice_cache: dict[Path, dict[str, dict[str, Any]]] = {}
+_completas_cache: dict[Path, dict[str, dict[str, Any]]] = {}
 _resultados: dict[str, dict[str, Any]] = {}
 _disco_leido = False
 
@@ -168,6 +172,7 @@ def resumen_resultado(r: dict[str, Any]) -> dict[str, Any]:
         "segundos": t.get("triage_seconds") or r.get("segundos_total"),
         "acciones_ejecutadas": len(t.get("executed_actions") or []),
         "resuelta": any(h.get("tipo") in ("cerrar", "escalar_n2") for h in humano),
+        "correccion": next((h for h in reversed(humano) if h.get("tipo") == "corregir"), None),
     }
 
 
@@ -266,6 +271,18 @@ def ver_alerta(alert_id: str) -> dict[str, Any]:
     return a
 
 
+@app.get("/api/alertas/{alert_id}/original")
+def alerta_original(alert_id: str) -> dict[str, Any]:
+    """La alerta tal como llegó: la guardada en el resultado, o la del dataset."""
+    _leer_disco()
+    with _cerrojo:
+        guardada = (_resultados.get(alert_id) or {}).get("alerta")
+    alerta = guardada or _alertas_completas().get(alert_id)
+    if alerta is None:
+        raise HTTPException(404, f"No se encuentra la alerta {alert_id}")
+    return alerta
+
+
 @app.get("/api/resultados")
 def listar_resultados() -> list[dict[str, Any]]:
     _leer_disco()
@@ -276,6 +293,30 @@ def listar_resultados() -> list[dict[str, Any]]:
 @app.get("/api/resultados/{alert_id}")
 def ver_resultado(alert_id: str) -> dict[str, Any]:
     return _obtener(alert_id)
+
+
+def _alertas_completas() -> dict[str, dict[str, Any]]:
+    """Las alertas del dataset completas (la agrupación necesita entidades y evidencia)."""
+    ruta = RUTA_ALERTAS if RUTA_ALERTAS.exists() else RUTA_MUESTRA
+    with _cerrojo:
+        if ruta not in _completas_cache:
+            alertas: dict[str, dict[str, Any]] = {}
+            if ruta.exists():
+                with ruta.open(encoding="utf-8") as f:
+                    alertas = {a["alert_id"]: a for a in (json.loads(linea) for linea in f if linea.strip())}
+            _completas_cache[ruta] = alertas
+        return _completas_cache[ruta]
+
+
+@app.get("/api/grupos")
+def grupos() -> list[dict[str, Any]]:
+    """Alertas triadas que forman parte de la misma intrusión, con su ticket único."""
+    _leer_disco()
+    with _cerrojo:
+        resultados = {i: r for i, r in _resultados.items() if "error" not in r}
+    completas = _alertas_completas()
+    alertas = {i: r.get("alerta") or completas[i] for i, r in resultados.items() if r.get("alerta") or i in completas}
+    return agrupar_resultados(resultados, alertas)
 
 
 @app.get("/api/registro")
@@ -413,6 +454,8 @@ class PeticionDecision(BaseModel):
     por: str = ""
     indice: int | None = None
     motivo: str = ""
+    veredicto: str = ""
+    severidad: str = ""
 
 
 @app.post("/api/resultados/{alert_id}/acciones/{indice}/ejecutar")
@@ -445,11 +488,21 @@ def decidir(alert_id: str, peticion: PeticionDecision) -> dict[str, Any]:
         raise HTTPException(422, f"Decisión desconocida: {peticion.tipo}")
     if peticion.tipo in ("cerrar", "escalar_n2") and not peticion.por.strip():
         raise HTTPException(400, "Indica el nombre de la persona que decide")
+    corregir = peticion.tipo == "corregir"
+    if corregir:
+        # La persona corrige a la IA y a la política; no se recalcula nada: se anota quién, qué y por qué.
+        if not peticion.por.strip() or not peticion.motivo.strip():
+            raise HTTPException(400, "Para corregir indica tu nombre y el motivo")
+        if peticion.veredicto not in VEREDICTOS:
+            raise HTTPException(422, f"Veredicto no válido: {peticion.veredicto or '(vacío)'}")
+        if peticion.severidad and peticion.severidad not in SEVERIDADES:
+            raise HTTPException(422, f"Severidad no válida: {peticion.severidad}")
     resultado = _obtener(alert_id)
     with _cerrojo:
         resultado.setdefault("humano", []).append({
             "tipo": peticion.tipo, "por": peticion.por.strip(), "indice": peticion.indice,
-            "motivo": peticion.motivo, "cuando": datetime.now(UTC).isoformat(timespec="seconds"),
+            "motivo": peticion.motivo.strip(), "cuando": datetime.now(UTC).isoformat(timespec="seconds"),
+            **({"veredicto": peticion.veredicto, "severidad": peticion.severidad} if corregir else {}),
         })
         _guardar(resultado)
     return {"humano": resultado["humano"]}

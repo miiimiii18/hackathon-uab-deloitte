@@ -197,3 +197,21 @@ pre.json { margin: 8px 0 0; padding: 12px 14px; background: #0a0e10; border: 1px
   .cabecera h1 { font-size: 34px; } .detalle-cab h1 { font-size: 28px; }
 }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+/* Filtros de la cola */
+.filtros { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; align-items: center; }
+.filtros select { min-height: 44px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--ln); background: var(--s1); color: var(--tx); font: 500 13.5px var(--f-b); }
+.filtros .btn { margin-left: auto; }
+
+/* Quién decide qué (siempre visible en el detalle) */
+.reparto { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 10px; margin: 0 0 16px; }
+.reparto > div { padding: 12px 14px; border-radius: 14px; border: 1px solid var(--ln); background: var(--s1); display: flex; flex-direction: column; gap: 3px; font-size: 13px; min-width: 0; }
+.reparto .ia { border-color: #3b3166; } .reparto .co { border-color: #24476a; } .reparto .pe { border-color: #43591b; }
+.reparto small { color: var(--mu); font-size: 12px; }
+.reparto b { font-weight: 600; overflow-wrap: anywhere; }
+.corregir select, .corregir input { min-height: 44px; padding: 0 12px; border-radius: 12px; border: 1px solid #43591b; background: #0b1006; color: var(--tx); font: 500 14px var(--f-b); width: 100%; }
+.corregir { display: flex; flex-direction: column; gap: 10px; padding-top: 8px; }
+
+/* Registro de contención */
+.tabla-reg { display: grid; grid-template-columns: 150px 140px minmax(160px, 1.4fr) 150px 130px minmax(100px, 1fr); gap: 10px; padding: 10px 16px; border-bottom: 1px dashed var(--ln); font-size: 12.5px; min-width: 900px; align-items: center; overflow-wrap: anywhere; }
+.tabla-reg.hd { color: var(--mu); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; font-size: 11.5px; }

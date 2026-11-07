@@ -62,6 +62,7 @@ def triar(
     evidencia = reunir_evidencia(alerta, cliente)
     resultado: dict[str, Any] = {
         "alert_id": alerta.get("alert_id"),
+        "alerta": alerta,  # la alerta ya normalizada: la UI la enseña y la agrupación la necesita
         "evidencia": evidencia,
         "traza": cliente.traza,
         "segundos_evidencia": round(time.perf_counter() - inicio, 1),
