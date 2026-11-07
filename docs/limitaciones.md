@@ -6,16 +6,16 @@ Documento para la defensa y base del panel «Lo que no resuelve» de la web. Las
 
 - Las alertas del dataset **no traen la respuesta correcta**. Medimos contra 42 alertas etiquetadas por nosotros (`evaluacion/casos.json`), más 9 inventadas.
 - Esas etiquetas las ha revisado Claude con una segunda pasada de evidencia; **no hay revisión humana independiente**.
-- Última medición (7-nov, 42 casos repetidos 2 veces): **veredicto 72 de 84 (86 %), severidad 66 de 74 (89 %) y decisión (cerrar, revisar o escalar) 63 de 70 (90 %)**. Incidentes 81 %, ruido 77 %. Es una estimación sobre un conjunto pequeño, no una garantía.
+- Mediciones del 7-nov (42 casos repetidos 2 veces, dos ejecuciones seguidas): **veredicto 81–86 % (68 y 72 de 84), severidad 85–89 %, decisión (cerrar, revisar o escalar) 90 %**. Entre una ejecución y otra cambió el veredicto de 4 casos sin tocar nada relevante: esa es la precisión real de la medida. Es una estimación sobre un conjunto pequeño, no una garantía.
 - La severidad y la decisión se miden solo en los 37 casos que tienen etiqueta (el resto es ambiguo y no cuenta). Esas etiquetas las escribimos antes de ejecutar la evaluación, pero siguen siendo nuestras.
 
 ## 2. La IA se equivoca y no siempre da la misma respuesta
 
-- 6 de los 42 casos dieron veredictos distintos entre repeticiones (y 2 de las 9 alertas inventadas).
+- Entre 2 y 6 de los 42 casos (según la ejecución) dieron veredictos distintos entre repeticiones.
 - Fallos que se repiten:
   - Accesos de un proveedor externo de madrugada y fuera de horario: la IA los deja en «necesita más información» en vez de marcarlos como ataque.
   - Un «túnel DNS» que en realidad es un antivirus consultando reputación: la IA lo da por ataque.
-- **El fallo más grave: a veces se cierra un ataque.** Los accesos de madrugada del proveedor externo y un volcado de credenciales con instrucciones ocultas salieron como falsa alarma en una de las dos repeticiones y se habrían cerrado. Por eso la persona debe revisar también los cierres, no solo las escaladas.
+- **El fallo más grave: a veces se cerraba un ataque.** Los accesos de madrugada del proveedor externo y un volcado de credenciales con instrucciones ocultas salieron como falsa alarma en una de las dos repeticiones. Se endureció con dos reglas en código (la cuenta del proveedor fuera de su horario y las detecciones de severidad crítica no se cierran sin una autorización verificada) y desde entonces no se cerró ningún ataque en las pruebas (dos ejecuciones completas y 18 repeticiones dirigidas). Pero son reglas concretas: un ataque de otro tipo y de severidad no crítica aún podría cerrarse, por eso la persona debe revisar también los cierres.
 - También ocurre al revés: algunas actividades legítimas (fotos de campaña enviadas a un servicio de transferencia, un bucket publicado por Terraform, un antivirus) se escalan como ataques críticos sin necesidad.
 - Una autorización verificable (el escaneo semanal de seguridad) a veces pasa a revisión humana en vez de cerrarse.
 - La confianza que da la IA ayuda, pero no es una garantía: media 0,88 cuando acierta y 0,67 cuando falla, aunque 2 de 15 fallos llevaban 0,9 o más. Con un indicador desconocido casi no baja.
@@ -31,6 +31,7 @@ Documento para la defensa y base del panel «Lo que no resuelve» de la web. Las
 
 ## 4. Lo que el sistema todavía no hace
 
+- **Alertas pegadas incompletas:** la web exige `alert_id`, `rule_id`, `severity`, `created_at` y `entities` antes de triar. Todas las alertas del dataset los traen, pero una alerta más pobre se rechaza en la interfaz con el motivo; el motor sí la trataría (sale `needs_more_info`) con `python -m src.triaje alerta.json`.
 - **Agrupación parcial** (nivel 2): une en un solo ticket las alertas ya triadas de la cola que comparten usuario, equipo, IP, dominio, hash, cliente, identidad cloud o correo, y las escala. No busca por su cuenta otras alertas relacionadas en el dataset, y no une dos grupos si ninguna alerta nombra la entidad que los conecta (los accesos de un proveedor externo y el túnel DNS posterior desde el servidor al que entraba salen como dos casos). Solo agrupa lo que sigue siendo sospechoso tras el triaje, así que depende de que el veredicto individual sea correcto.
 - **Reconstruir la cadena de ataque** (nivel 3): no genera el informe de incidente.
 - La deduplicación (unas 920 alertas exactas repetidas) está hecha y probada, pero la cola todavía no la aplica sola.
