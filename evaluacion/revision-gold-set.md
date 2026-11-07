@@ -61,7 +61,7 @@ Criterio de veredictos (Deloitte): `true_positive` = malicioso (aunque se haya b
 | ALR-20261101-010863 | CLD-003 | Bucket `tarvia-media-public` pasa a lectura pública por Terraform desde el runner de CI interno. Sin cambio en el calendario. Podría ser normal (es un bucket «público» de medios)… o un abuso del CI/CD | FP, BTP o NMI |
 | ALR-20261007-001237 | DLP-001 | Una **analista de fraude** sube 825 MB de `fotos_campaña_navidad_RAW.zip` a WeTransfer; 0 datos personales | FP o NMI |
 
-## Fallos de nuestro código que ha destapado esta revisión
+## Fallos de nuestro código que ha destapado esta revisión (✅ arreglados en `fix/evidencia-cambios`)
 
 1. **`evidencia.py` no busca los cambios que cita la propia alerta.** En `ALR-20261023-011915` la alerta trae `change_ticket: CHG-2026-1078` y la evidencia no lo encontró (solo busca por usuario, host, IP y dominio).
 2. **`policy.py` no comprueba las IPs de origen del cambio.** El pentest (CHG-2026-1042) solo autoriza 192.0.2.10–12; un escaneo de otra IP en esas fechas no está autorizado, pero la política lo aceptaría si el LLM citara el cambio.

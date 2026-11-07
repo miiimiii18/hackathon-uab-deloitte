@@ -107,3 +107,18 @@ def test_la_evidencia_se_recorta_si_no_cabe(monkeypatch):
     assert len(json.dumps(ev, ensure_ascii=False)) <= 6000
     # Se mantiene el recuento total aunque se muestren menos ejemplos
     assert all(g["total"] == 20 for g in ev["contexto_logs"])
+
+
+def test_busca_los_cambios_que_cita_la_propia_alerta():
+    from src.evidencia import cambios_citados
+
+    alerta = {**ALERTA, "evidence": {"change_ticket": "chg-2026-1078", "nota": "ver FLUJO-0007"}}
+    assert cambios_citados(alerta) == ["CHG-2026-1078", "FLUJO-0007"]
+
+    class ConCalendario(ClienteFalso):
+        def cambios(self, texto):
+            calendario = {"CHG-2026-1078": {"id": "CHG-2026-1078", "titulo": "Alta en Backup Operators"}}
+            return [calendario[texto]] if texto in calendario else []
+
+    ev = reunir_evidencia(alerta, ConCalendario())
+    assert "CHG-2026-1078" in [c["id"] for c in ev["cambios_aprobados"]]
