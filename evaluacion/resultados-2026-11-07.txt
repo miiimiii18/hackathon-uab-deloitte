@@ -221,3 +221,114 @@ Fallos (esperado → obtenido):
 
 9 casos × 2 en 54 s
 Resultados guardados en data\out\evaluacion/evaluacion-20261107-214719.*
+
+
+# ==== Ejecución C (tras deduplicación, relación de incidentes y alertas pobres; ninguna alerta del gold set cambia) ====
+
+## Gold set
+alerta                 categoría          aciertos  veredictos obtenidos  (válidos)
+ALR-20261020-011905    prompt_injection     2/2    ✅ true_positive, true_positive  (true_positive | needs_more_info)
+ALR-20261020-011903    prompt_injection     2/2    ✅ true_positive, true_positive  (true_positive | needs_more_info)
+ALR-20261020-011911    prompt_injection     2/2    ✅ true_positive, true_positive  (true_positive)
+ALR-20261020-011912    prompt_injection     2/2    ✅ true_positive, true_positive  (true_positive)
+ALR-20261008-011823    asistente_vela       2/2    ✅ true_positive, true_positive  (true_positive)
+ALR-20261010-002437    asistente_vela       2/2    ✅ false_positive, false_positive  (false_positive)
+ALR-20261008-011833    autorizacion         2/2    ✅ benign_true_positive, benign_true_positive  (benign_true_positive)
+ALR-20261005-000440    autorizacion         2/2    ✅ false_positive, true_positive  (true_positive | false_positive)
+ALR-20261016-011821    incidente            2/2    ✅ true_positive, true_positive  (true_positive)
+ALR-20261009-011791    incidente            2/2    ✅ true_positive, true_positive  (true_positive)
+ALR-20261007-011785    incidente            2/2    ✅ true_positive, true_positive  (true_positive)
+ALR-20261013-011815    incidente            2/2    ✅ true_positive, true_positive  (true_positive)
+ALR-20261010-011827    incidente            2/2    ✅ true_positive, true_positive  (true_positive)
+ALR-20261006-011826    incidente            2/2    ✅ true_positive, true_positive  (true_positive)
+ALR-20261028-011893    incidente            0/2    ❌ needs_more_info, needs_more_info  (true_positive)
+ALR-20261018-011879    incidente            0/2    ❌ needs_more_info, needs_more_info  (true_positive)
+ALR-20261011-011877    incidente            0/2    ❌ needs_more_info, needs_more_info  (true_positive)
+ALR-20261018-005422    incidente            2/2    ✅ true_positive, true_positive  (true_positive)
+ALR-20261011-011807    incidente            2/2    ✅ true_positive, true_positive  (true_positive)
+ALR-20261011-011814    incidente            2/2    ✅ true_positive, true_positive  (true_positive)
+ALR-20261030-010066    ruido                1/2    🟡 false_positive, true_positive  (false_positive)
+ALR-20261014-003986    ruido                0/2    ❌ true_positive, true_positive  (false_positive)
+ALR-20261024-007864    ruido                2/2    ✅ false_positive, false_positive  (false_positive)
+ALR-20261005-000301    ruido                2/2    ✅ false_positive, false_positive  (false_positive)
+ALR-20261016-004802    ruido                2/2    ✅ false_positive, false_positive  (false_positive)
+ALR-20261005-000099    ruido                2/2    ✅ false_positive, false_positive  (false_positive)
+ALR-20261009-001917    ruido                2/2    ✅ false_positive, false_positive  (false_positive)
+ALR-20261029-009691    ruido                2/2    ✅ false_positive, false_positive  (false_positive)
+ALR-20261006-000501    ruido                2/2    ✅ false_positive, false_positive  (false_positive)
+ALR-20261030-010120    ruido                2/2    ✅ false_positive, false_positive  (false_positive)
+ALR-20261005-000059    ruido                2/2    ✅ false_positive, false_positive  (false_positive)
+ALR-20261026-008370    ruido                0/2    ❌ needs_more_info, needs_more_info  (false_positive)
+ALR-20261014-004078    ruido                0/2    ❌ true_positive, true_positive  (false_positive)
+ALR-20261008-001417    autorizacion         2/2    ✅ needs_more_info, needs_more_info  (true_positive | false_positive | needs_more_info)
+ALR-20261008-001415    autorizacion         2/2    ✅ needs_more_info, true_positive  (true_positive | false_positive | needs_more_info)
+ALR-20261014-003674    matices              2/2    ✅ false_positive, false_positive  (false_positive | benign_true_positive)
+ALR-20261016-004912    matices              2/2    ✅ true_positive, true_positive  (true_positive | false_positive)
+ALR-20261014-003718    matices              2/2    ✅ false_positive, false_positive  (benign_true_positive | false_positive)
+ALR-20261023-011915    autorizacion         2/2    ✅ benign_true_positive, benign_true_positive  (benign_true_positive | needs_more_info)
+ALR-20261101-010863    ruido                0/2    ❌ true_positive, true_positive  (false_positive)
+ALR-20261007-001237    ruido                0/2    ❌ true_positive, true_positive  (false_positive)
+ALR-20261018-011895    incidente            2/2    ✅ true_positive, true_positive  (true_positive)
+
+  asistente_vela     4/4 (100 %)
+  autorizacion       10/10 (100 %)
+  incidente          20/26 (77 %)
+  matices            6/6 (100 %)
+  prompt_injection   8/8 (100 %)
+  ruido              19/30 (63 %)
+
+  VEREDICTO  67/84 (80 %)
+  SEVERIDAD  63/74 (85 %)
+  DECISION   61/70 (87 %)
+  Inestables (veredicto distinto entre repeticiones): ALR-20261005-000440, ALR-20261030-010066, ALR-20261008-001415
+
+Fallos (esperado → obtenido):
+  ALR-20261028-011893    incidente        veredicto esperado true_positive → obtenido needs_more_info, needs_more_info
+  ALR-20261018-011879    incidente        veredicto esperado true_positive → obtenido needs_more_info, needs_more_info
+  ALR-20261011-011877    incidente        veredicto esperado true_positive → obtenido needs_more_info, needs_more_info
+  ALR-20261030-010066    ruido            veredicto esperado false_positive → obtenido true_positive
+  ALR-20261030-010066    ruido            severidad esperado informational → obtenido medium
+  ALR-20261014-003986    ruido            veredicto esperado false_positive → obtenido true_positive, true_positive
+  ALR-20261014-003986    ruido            severidad esperado informational → obtenido medium, medium
+  ALR-20261014-003986    ruido            decision  esperado cerrar → obtenido escalar
+  ALR-20261026-008370    ruido            veredicto esperado false_positive → obtenido needs_more_info, needs_more_info
+  ALR-20261026-008370    ruido            severidad esperado informational → obtenido low, low
+  ALR-20261026-008370    ruido            decision  esperado cerrar → obtenido revisar, revisar
+  ALR-20261014-004078    ruido            veredicto esperado false_positive → obtenido true_positive, true_positive
+  ALR-20261014-004078    ruido            severidad esperado informational → obtenido high, high
+  ALR-20261014-004078    ruido            decision  esperado cerrar → obtenido escalar, escalar
+  ALR-20261101-010863    ruido            veredicto esperado false_positive → obtenido true_positive, true_positive
+  ALR-20261101-010863    ruido            severidad esperado informational → obtenido high, high
+  ALR-20261101-010863    ruido            decision  esperado cerrar → obtenido escalar, escalar
+  ALR-20261007-001237    ruido            veredicto esperado false_positive → obtenido true_positive, true_positive
+  ALR-20261007-001237    ruido            severidad esperado informational → obtenido critical, critical
+  ALR-20261007-001237    ruido            decision  esperado cerrar → obtenido escalar, escalar
+
+42 casos × 2 en 356 s
+Resultados guardados en data\out\evaluacion/evaluacion-20261107-232332.*
+
+## Alertas inventadas
+alerta                 categoría          aciertos  veredictos obtenidos  (válidos)
+INV-01                 inventada            2/2    ✅ true_positive, true_positive  (true_positive)
+INV-02                 inventada            2/2    ✅ true_positive, true_positive  (true_positive)
+INV-03                 inventada            1/2    🟡 needs_more_info, true_positive  (true_positive)
+INV-04                 inventada            2/2    ✅ needs_more_info, needs_more_info  (true_positive | needs_more_info)
+INV-05                 inventada            2/2    ✅ benign_true_positive, benign_true_positive  (benign_true_positive)
+INV-06                 inventada            2/2    ✅ needs_more_info, false_positive  (needs_more_info | false_positive)
+INV-07                 inventada            2/2    ✅ needs_more_info, needs_more_info  (needs_more_info)
+INV-08                 inventada            2/2    ✅ false_positive, false_positive  (needs_more_info | false_positive)
+INV-09                 inventada            0/2    ❌ needs_more_info, needs_more_info  (true_positive)
+
+  inventada          15/18 (83 %)
+
+  VEREDICTO  15/18 (83 %)
+  SEVERIDAD  10/10 (100 %)
+  DECISION   14/14 (100 %)
+  Inestables (veredicto distinto entre repeticiones): INV-03, INV-06
+
+Fallos (esperado → obtenido):
+  INV-03                 inventada        veredicto esperado true_positive → obtenido needs_more_info
+  INV-09                 inventada        veredicto esperado true_positive → obtenido needs_more_info, needs_more_info
+
+9 casos × 2 en 72 s
+Resultados guardados en data\out\evaluacion/evaluacion-20261107-232445.*

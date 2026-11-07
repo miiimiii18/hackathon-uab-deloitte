@@ -6,7 +6,7 @@ Documento para la defensa y base del panel «Lo que no resuelve» de la web. Las
 
 - Las alertas del dataset **no traen la respuesta correcta**. Medimos contra 42 alertas etiquetadas por nosotros (`evaluacion/casos.json`), más 9 inventadas.
 - Esas etiquetas las ha revisado Claude con una segunda pasada de evidencia; **no hay revisión humana independiente**.
-- Mediciones del 7-nov (42 casos repetidos 2 veces, dos ejecuciones seguidas): **veredicto 81–86 % (68 y 72 de 84), severidad 85–89 %, decisión (cerrar, revisar o escalar) 90 %**. Entre una ejecución y otra cambió el veredicto de 4 casos sin tocar nada relevante: esa es la precisión real de la medida. Es una estimación sobre un conjunto pequeño, no una garantía.
+- Mediciones del 7-nov (42 casos repetidos 2 veces, tres ejecuciones): **veredicto 80–86 % (67, 68 y 72 de 84), severidad 85–89 %, decisión (cerrar, revisar o escalar) 87–90 %**. Entre una ejecución y otra cambió el veredicto de 4 casos sin tocar nada relevante: esa es la precisión real de la medida. Es una estimación sobre un conjunto pequeño, no una garantía.
 - La severidad y la decisión se miden solo en los 37 casos que tienen etiqueta (el resto es ambiguo y no cuenta). Esas etiquetas las escribimos antes de ejecutar la evaluación, pero siguen siendo nuestras.
 
 ## 2. La IA se equivoca y no siempre da la misma respuesta
