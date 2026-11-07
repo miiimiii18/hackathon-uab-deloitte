@@ -66,6 +66,7 @@ function actualizarFila(el, f) {
   }
   const g = estado.grupos.get(f.id);
   if (g && listo) r.sub.append(" ", h("span", { class: "chip c-med", title: `Mismo ataque: ${g.alert_ids.join(", ")}` }, `Mismo ataque · ${g.alert_ids.length} alertas`));
+  if (res?.duplicada_de && listo) r.sub.append(" ", h("span", { class: "chip", title: "Misma regla, entidades y evidencia: no se vuelve a triar, se reutiliza el resultado" }, `Duplicada de ${res.duplicada_de}`));
   [...r.pp.children].forEach((seg, i) => { seg.className = segmentos(f)[i]; });
 
   r.ver.replaceChildren();

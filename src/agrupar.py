@@ -59,6 +59,30 @@ def _claves(alerta: dict[str, Any]) -> list[tuple[str, str]]:
     return claves
 
 
+def clave_duplicado(alerta: dict[str, Any]) -> str:
+    """Dos alertas son idénticas si tienen la misma regla, entidades y evidencia (aunque cambien ID y hora)."""
+    return json.dumps([alerta.get("rule_id"), alerta.get("entities"), alerta.get("evidence")], sort_keys=True, default=str)
+
+
+def posiciones_duplicadas(alertas: list[dict[str, Any] | None]) -> dict[int, int]:
+    """Para cada alerta idéntica a otra anterior de la lista, la posición de esa primera.
+
+    Sirve para triar solo una de cada grupo de idénticas sin perder el orden del lote.
+    `None` (una alerta que no se pudo cargar) no se compara con nada.
+    """
+    primera: dict[str, int] = {}
+    duplicadas: dict[int, int] = {}
+    for i, a in enumerate(alertas):
+        if not isinstance(a, dict):
+            continue
+        clave = clave_duplicado(a)
+        if clave in primera:
+            duplicadas[i] = primera[clave]
+        else:
+            primera[clave] = i
+    return duplicadas
+
+
 def deduplicar(alertas: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, list[str]]]:
     """Quita las alertas idénticas (misma regla, entidades y evidencia).
 
@@ -68,7 +92,7 @@ def deduplicar(alertas: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dic
     unicas: list[dict[str, Any]] = []
     repetidas: dict[str, list[str]] = defaultdict(list)
     for a in alertas:
-        clave = json.dumps([a.get("rule_id"), a.get("entities"), a.get("evidence")], sort_keys=True, default=str)
+        clave = clave_duplicado(a)
         if clave in vistas:
             repetidas[vistas[clave]].append(a.get("alert_id", ""))
         else:

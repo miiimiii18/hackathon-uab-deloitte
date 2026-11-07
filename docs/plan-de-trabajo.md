@@ -167,7 +167,7 @@ La UI es obligatoria, así que se empieza pronto con datos falsos y se conecta a
 
 ### Fase 4: Nivel 2, criterio y correlación (≈4 h) — A
 - [x] **Agrupación** de alertas por entidades compartidas (usuario, host, IP, dominio, hash, cliente, identidad cloud, message_id) con ventana por tipo de entidad, para generar **un solo ticket** con todos los `alert_ids`. *Hecho el 7-nov en `src/agrupar.py` (`agrupar`, `consolidar_grupo`, `agrupar_resultados`) y la regla de grupo en `src/policy.py` (`decision_de_grupo`); web: `GET /api/grupos`, etiqueta «Mismo ataque» en la cola y panel en el detalle. Agrupa solo lo ya triado y sospechoso (true_positive / needs_more_info): un falso positivo no se une a una intrusión. Validado con el dataset entero (con las 9 reglas ruidosas fuera como sustituto del triaje): 22 grupos de 2–18 alertas que corresponden a incidentes reales, y con 5 alertas triadas de verdad (phishing de SSO → toma de cuenta): 1 ticket crítico escalado, válido contra el esquema. Tests en `tests/test_agrupar.py`.*
-- [ ] **Deduplicación** (≈920 exactas) conectada a la carga de alertas. *`deduplicar()` existe y está probada (quita las 920 del dataset), pero ni la cola ni la CLI la llaman todavía.*
+- [x] **Deduplicación** (≈920 exactas) conectada a la carga de alertas. *Hecho el 7-nov: en cada lote (web y CLI), las alertas idénticas a otra (misma regla, entidades y evidencia; `posiciones_duplicadas` en `src/agrupar.py`) no se vuelven a triar: reciben una copia del resultado de la primera con `duplicada_de`, se guarda con su propio ID y la cola la marca «Duplicada de …». En la CLI, `--sin-dedup` las tría todas. Probado con una pareja real del dataset (`ALR-20261005-000211` / `-000021`): una sola llamada al LLM. **Límite:** solo compara dentro del mismo lote, no con lo triado antes.*
 - [x] Una señal débil sola es baja, pero **varias alertas bajas encadenadas** (ej. correo → clic → PowerShell → beacon → login anómalo) forman un incidente: escalar. *`decision_de_grupo` en `src/policy.py`: un grupo se escala siempre y toma la mayor severidad de sus alertas (sin sumar otro ajuste, para respetar el máximo de ±1).*
 - [x] Búsqueda de **actividad autorizada**: calendario de cambios (`/changes`), RRHH (viajes, bajas), reglas internas de Tarvia, ventana de escaneo, pentest. Argumentar siempre el descarte citando la fuente. *Hecho en `src/policy.py`: CHG/FLUJO del calendario con su ventana de fechas y sus IPs de origen, reglas internas de Tarvia con su comprobación, y RRHH en la evidencia del usuario.*
 - [x] Criticidad real del activo desde CMDB y de la identidad más crítica (VIP/privilegiada) para la matriz. *En `src/policy.py`.*
@@ -284,7 +284,7 @@ Antes del commit, enseñar qué se sube y esperar confirmación. Después, abrir
 - [x] **Stack de UI** (Streamlit vs. front propio). **Decidido: Streamlit.** *Cambiado el 7 nov a front propio: ver `docs/web.md`.*
 - [x] **Reparto de áreas** entre las personas del equipo. **Decidido: todos hacemos de todo.**
 - [x] ¿Usamos consultas OSINT reales (VirusTotal, AbuseIPDB…)? **Decidido: no.** Solo usamos la inteligencia interna del dataset (TIP, GeoIP, sandbox); un indicador sin entrada se trata como `unknown`. Declarado en `docs/limitaciones.md`. Los IOC reales no se visitan ni se escanean.
-- [x] ¿Triajeamos las 11.061 alertas o un subconjunto? **Decidido: un subconjunto.** Triadas y medidas: la muestra de 150, el gold set de 42, 9 inventadas y las 10 de la cola de la demo (+ 5 de un incidente agrupable). La deduplicación (≈920) existe como función. El resto del dataset no se ha triado; declarado en `docs/limitaciones.md`.
+- [x] ¿Triajeamos las 11.061 alertas o un subconjunto? **Decidido: un subconjunto.** Triadas y medidas: la muestra de 150, el gold set de 42, 9 inventadas y las 10 de la cola de la demo (+ 5 de un incidente agrupable). La deduplicación (≈920) se aplica en cada lote de la web y de la CLI. El resto del dataset no se ha triado; declarado en `docs/limitaciones.md`.
 
 ---
 
@@ -306,4 +306,4 @@ Revisado punto por punto contra el `README.md` del repo de Deloitte.
 | Honestidad sobre lo que no resuelve | ✅ | `docs/limitaciones.md`, franja en la cola, one-pager |
 | Formatos de salida de referencia (opcionales) | ✅ ambos, validados | `src/esquemas/` |
 | No obedecer datos escritos por el atacante | ✅ | `marcar_datos_no_fiables`, 16/16 en la evaluación |
-| Desconocido ≠ limpio; duplicados; eventos fuera de `related_events` | ✅ / ⚠️ deduplicación sin conectar / ✅ | `src/evidencia.py`, `src/agrupar.py` |
+| Desconocido ≠ limpio; duplicados; eventos fuera de `related_events` | ✅ / ✅ deduplicación en cada lote / ✅ | `src/evidencia.py`, `src/agrupar.py` |

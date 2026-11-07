@@ -2,7 +2,7 @@
 
 - **Categoría:** IA + ciberseguridad (SOC)
 - **Responsable:** todo el equipo TEMIPO
-- **Estado:** 🟢 resuelto en lo esencial (matriz, descarte de autorizaciones y agrupación); la deduplicación automática y la búsqueda de alertas relacionadas fuera de la cola quedan pendientes
+- **Estado:** 🟢 resuelto en lo esencial (matriz, descarte de autorizaciones, deduplicación y agrupación); la búsqueda de alertas relacionadas fuera de la cola quedan pendientes
 - **Resultado:** autorizaciones 15/15 y matices 9/9 en el gold set; ningún ataque inventado se cierra como falso positivo.
 
 ## Enunciado
@@ -22,8 +22,11 @@ Agrupar alertas del mismo ataque, aplicar la matriz de severidad con la criticid
 4. **Prueba con el dataset completo:** quitando las 9 reglas ruidosas como sustituto del triaje, salen 22 grupos de 2 a 18 alertas que corresponden a incidentes reales (cadena de Latrodectus, accesos de un proveedor externo, túnel DNS, toma de cuenta de clientes, phishing de SSO).
 5. **Prueba de extremo a extremo:** 5 alertas del phishing de SSO triadas con el LLM dan 1 ticket crítico escalado y válido contra el esquema.
 
+## Deduplicación
+Antes de triar un lote (web o CLI), las alertas idénticas a otra del mismo lote (misma regla, entidades y evidencia, aunque cambien el ID y la hora; `posiciones_duplicadas`) no se vuelven a mandar al modelo: reciben una copia del resultado de la primera, marcada con `duplicada_de`. En el dataset son 920 de 11.061. Así no se gasta tiempo del LLM y dos alertas iguales nunca salen con veredictos distintos por la variación del modelo.
+
 ## Pendiente
-- Conectar `deduplicar()` (quita las ~920 alertas exactas repetidas) a la carga de alertas, y buscar alertas relacionadas fuera de la cola.
+- Buscar alertas relacionadas fuera de la cola, y deduplicar también contra lo triado en lotes anteriores.
 
 ## Lo que aprendimos
 - Citar un cambio de palabra no basta: el texto lo puede escribir el atacante.

@@ -72,3 +72,25 @@ def test_el_generador_devuelve_cada_alerta_al_terminar(triar_falso):
 def test_solo_evidencia_se_propaga(triar_falso):
     r = triar_lote([{"alert_id": "ALR-1"}], con_llm=False, crear_cliente=object)
     assert r[0]["con_llm"] is False
+
+
+def test_preparar_lote_marca_las_identicas_y_deja_las_que_no_cargan():
+    base = {"rule_id": "UC-1", "entities": {"hosts": ["H"]}, "evidence": {"x": 1}}
+    dataset = {"A": {**base, "alert_id": "A"}, "B": {**base, "alert_id": "B"}, "C": {**base, "rule_id": "UC-2", "alert_id": "C"}}
+
+    class ClienteFalso:
+        def alerta(self, ref):
+            return dataset.get(ref)
+
+    lote, duplicadas = triaje.preparar_lote(["A", "NO-EXISTE", "B", "C"], crear_cliente=ClienteFalso)
+    assert duplicadas == {2: 0}
+    assert lote[1] == "NO-EXISTE" and lote[0]["alert_id"] == "A"
+    assert triaje.preparar_lote(["A", "B"], deduplicar=False, crear_cliente=ClienteFalso) == (["A", "B"], {})
+
+
+def test_la_copia_de_una_duplicada_lleva_su_id_y_de_quien_es():
+    original = {"alert_id": "A", "alerta": {"alert_id": "A"}, "ticket": {"ticket_id": "TKT-A"}}
+    copia = triaje.copia_de_duplicada(original, {"alert_id": "B", "rule_id": "UC-1"})
+    assert copia["alert_id"] == "B" and copia["duplicada_de"] == "A"
+    assert copia["alerta"]["alert_id"] == "B" and copia["ticket"]["ticket_id"] == "TKT-A"
+    assert original["alert_id"] == "A"  # la original no se toca
