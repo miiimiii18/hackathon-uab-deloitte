@@ -23,7 +23,7 @@ La IA **no ejecuta nada por su cuenta**. Aislar un equipo o desactivar una cuent
 ## Qué aporta (medido en el piloto)
 - **Rapidez:** unos 13 segundos por alerta; diez alertas en aproximadamente un minuto.
 - **Coste:** cero, porque usa el modelo gratuito de la organización del reto.
-- **Acierto:** en un conjunto de 42 casos que hemos revisado a mano acierta entre el 81 y el 86 % de las conclusiones, entre el 85 y el 89 % de las gravedades y el 90 % de las decisiones de cerrar, revisar o escalar (el rango es lo que varió entre dos ejecuciones seguidas). No se ha dejado engañar en ninguna de las 16 pruebas con instrucciones ocultas en correos y mensajes.
+- **Acierto:** en un conjunto de 42 casos que hemos revisado a mano acierta entre el 80 y el 86 % de las conclusiones, entre el 85 y el 89 % de las gravedades y entre el 87 y el 90 % de las decisiones de cerrar, revisar o escalar (el rango es lo que varió entre tres ejecuciones). No se ha dejado engañar en ninguna de las 16 pruebas con instrucciones ocultas en correos y mensajes.
 - **Explicación:** cada conclusión indica las fuentes y las reglas aplicadas, para que la persona pueda comprobarla.
 - **Prudencia:** una actividad «autorizada» solo se acepta si existe el cambio aprobado, en esa fecha y desde ese origen. Una excusa escrita en el propio texto de la alerta no vale.
 

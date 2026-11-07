@@ -34,7 +34,7 @@ Lo que se añadió el 7-nov (además del N1 que ya existía):
 - **Evaluación**: `scripts/evaluar.py` mide veredicto, severidad y decisión (cerrar/revisar/escalar). Resultados en `evaluacion/resultados-2026-11-07.txt`.
 - **Documentos de entrega**: `docs/limitaciones.md`, `docs/one-pager-comite.md`, `docs/pitch.md` (guion de 5 min con plan B) y `writeups/01` a `05`.
 
-Resultados medidos (gold set de 42 casos × 2 repeticiones, etiquetas nuestras y **sin revisión externa**): veredicto **81–86 %**, severidad 85–89 %, decisión 90 %. Entre dos ejecuciones seguidas cambian entre 2 y 6 casos por la variación del modelo: **cita siempre el rango, no un número exacto**. ~13–15 s por alerta, coste 0.
+Resultados medidos (gold set de 42 casos × 2 repeticiones, etiquetas nuestras y **sin revisión externa**): veredicto **80–86 %**, severidad 85–89 %, decisión 87–90 % (tres ejecuciones el 7-nov). Entre dos ejecuciones seguidas cambian entre 2 y 6 casos por la variación del modelo: **cita siempre el rango, no un número exacto**. ~13–15 s por alerta, coste 0.
 
 ## Arquitectura
 

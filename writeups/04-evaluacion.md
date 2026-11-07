@@ -24,7 +24,8 @@ Las alertas no traen la respuesta correcta; hay que construir nuestra propia ver
 | Coste | 0 (LLM de la organización) |
 | **7-nov, ejecución A, 42 casos × 2** | **veredicto 72/84 (86 %), severidad 66/74 (89 %), decisión 63/70 (90 %)** |
 | 7-nov, ejecución B (tras endurecer, mismo conjunto) | veredicto 68/84 (81 %), severidad 63/74 (85 %), decisión 63/70 (90 %) |
-| Alertas inventadas, 9 × 2 (A → B) | veredicto 15/18 → 16/18, severidad 8/10 → 10/10, decisión 12/14 → 14/14 |
+| 7-nov, ejecución C (tras deduplicación, relación de incidentes y alertas pobres, que no cambian ninguna alerta del gold set) | veredicto 67/84 (80 %), severidad 63/74 (85 %), decisión 61/70 (87 %); ningún ataque cerrado |
+| Alertas inventadas, 9 × 2 (A → B → C) | veredicto 15/18 → 16/18 → 15/18, severidad 8/10 → 10/10 → 10/10, decisión 12/14 → 14/14 → 14/14 |
 
 Por categoría: prompt injection, autorizaciones, Vela y matices 100 %; incidentes 77 %; ruido 78 %.
 
@@ -38,7 +39,7 @@ Se añadieron a cada caso `severidades_validas` y `decisiones_validas` (cerrar /
 4. **Autorización verificable en revisión**: el escaneo de NESSUS01 (`INV-05`) pasa a `needs_more_info` en 1 de 2.
 
 ## Variación entre ejecuciones
-A y B son el mismo conjunto de casos, con el modelo sin tocar; la diferencia (4 casos de 84) viene del propio modelo, sobre todo en el ruido (23/30 frente a 19/30: el cliente que se corrige en Vela y el bucket por Terraform salieron como ataque). El endurecimiento solo se activó en 2 triajes, ambos de ataques. **Hay que leer las cifras como un rango (81–86 %), no como un número exacto.**
+A y B son el mismo conjunto de casos, con el modelo sin tocar; la diferencia (4 casos de 84) viene del propio modelo, sobre todo en el ruido (23/30 frente a 19/30: el cliente que se corrige en Vela y el bucket por Terraform salieron como ataque). El endurecimiento solo se activó en 2 triajes, ambos de ataques. La ejecución C (mismo conjunto; los cambios de ese día no tocan ninguna alerta del gold set) dio 67/84: otra vez variación del modelo, y de nuevo sin cerrar ningún ataque (los 3 incidentes fallados quedan en `needs_more_info`). **Hay que leer las cifras como un rango (80–86 %), no como un número exacto.**
 
 ## Endurecimiento (fallo 1)
 Dos reglas fijas en `src/policy.py`: (1) la cuenta `ext.logisoft` fuera de lunes a viernes de 8 a 18 h (hora de España) no se cierra como falsa alarma ni como autorizada sin un cambio verificado, y (2) una regla de severidad crítica no se cierra sin una autorización verificada. En ambos casos el veredicto pasa a `needs_more_info`. Resultado: 18 de 18 repeticiones dirigidas sin cierres (ALR-…011879, ALR-…011877 e INV-09), y ningún ataque cerrado en la ejecución B. Límite: son reglas concretas, no una garantía general.
