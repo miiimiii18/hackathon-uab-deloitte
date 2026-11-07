@@ -30,7 +30,7 @@ No hay `npm`, ni build, ni fuentes ni recursos de terceros: todo es estático y 
 | **Detalle** (`#/alerta/ID`) | Qué ha consultado (`traza`), en qué se basa (`evidencia`), qué propone la IA (`llm.analisis`), qué decide la política (`politica`) y la decisión de la persona (acciones del ticket). |
 | **Informe de investigación** (panel del detalle) | Solo en lo escalado. «Generar informe» pide al servidor el informe del nivel 3 (línea de tiempo con eventos reales, alcance, causa raíz, contención propuesta, a quién avisar...) y lo guarda en `data/out/web/informes/`. |
 | **Registro** (`#/registro`) | Acciones ejecutadas en la API simulada (`containment_log`): cuándo, acción, objetivo, ticket, token de aprobación y resultado. |
-| **Cargar alertas** (panel lateral) | Pegar JSON (uno, lista o JSONL), subir `.json`/`.jsonl` o elegir de la muestra del dataset. Valida los campos `alert_id`, `rule_id`, `severity`, `created_at` y `entities` antes de enviar. |
+| **Cargar alertas** (panel lateral) | Pegar JSON (uno, lista o JSONL), subir `.json`/`.jsonl` o elegir de la muestra del dataset. Solo rechaza una alerta que no trae nada que investigar (ni `rule_id`, ni `rule_name`, ni `entities`, ni `evidence`). Si falta `alert_id` le pone uno estable (`ALR-MANUAL-…`); los demás campos que falten (`severity`, `created_at`, `entities`...) se marcan en amarillo y el servidor los completa del catálogo de reglas o los deja como aviso en el resultado. |
 
 Roles por color en toda la interfaz: violeta = IA, azul = código, lima = persona.
 

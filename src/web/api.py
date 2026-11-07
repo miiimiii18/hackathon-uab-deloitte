@@ -35,6 +35,7 @@ from pydantic import BaseModel
 from src import llm
 from src.agrupar import VEREDICTOS_RELEVANTES, agrupar_resultados, posiciones_duplicadas
 from src.contencion import ErrorContencion, ejecutar_accion, registrar_en_ticket
+from src.evidencia import completar_alerta, motivo_de_rechazo
 from src.investigacion import id_incidente, investigar
 from src.policy import SEVERIDADES
 from src.soc_client import SOC_API_URL, ErrorSOC, SocClient
@@ -53,7 +54,6 @@ COLA_INICIAL = [
     "ALR-20261020-011905", "ALR-20261008-001417", "ALR-20261008-011833", "ALR-20261005-000301",
     "ALR-20261023-011915", "ALR-20261009-001917",
 ]
-CAMPOS_OBLIGATORIOS = ("alert_id", "rule_id", "severity", "created_at", "entities")
 DECISIONES_HUMANAS = {"cerrar", "escalar_n2", "rechazar_accion", "corregir"}
 VEREDICTOS = ("true_positive", "benign_true_positive", "false_positive", "needs_more_info")
 
@@ -99,12 +99,6 @@ def _ids_muestra() -> list[str]:
         return []
     with RUTA_MUESTRA.open(encoding="utf-8") as f:
         return [json.loads(linea)["alert_id"] for linea in f if linea.strip()]
-
-
-def faltan_campos(alerta: Any) -> list[str]:
-    if not isinstance(alerta, dict):
-        return list(CAMPOS_OBLIGATORIOS)
-    return [c for c in CAMPOS_OBLIGATORIOS if alerta.get(c) in (None, "", {}, [])]
 
 
 # --- Resultados guardados ------------------------------------------------------------------
@@ -459,7 +453,7 @@ def _trabajo(i: int, referencia: str | dict[str, Any], salida: queue.Queue) -> N
             return respuesta
 
         resultado = triar(alerta, cliente=cliente, enviar=enviar)
-        resultado["meta"] = resumen_alerta(alerta)
+        resultado["meta"] = resumen_alerta(resultado.get("alerta") or alerta)  # la completada: nombre de la regla del catálogo
         if modelo != llm.MODELO_POR_DEFECTO and "llm" in resultado:  # que el resultado diga el modelo que respondió
             resultado["llm"]["modelo"] = modelo
             resultado["ticket"]["modelo"] = modelo
@@ -564,13 +558,18 @@ def _flujo(referencias: list[str | dict[str, Any]], paralelo: int, demo: bool) -
 def triaje(peticion: PeticionTriaje) -> StreamingResponse:
     if not peticion.alertas:
         raise HTTPException(422, "No hay alertas que triar")
-    for ref in peticion.alertas:
-        if isinstance(ref, dict) and (faltan := faltan_campos(ref)):
-            raise HTTPException(422, f"A la alerta {ref.get('alert_id', '(sin alert_id)')} le faltan campos: {', '.join(faltan)}")
+    referencias: list[str | dict[str, Any]] = []
+    for n, ref in enumerate(peticion.alertas, 1):
         if isinstance(ref, str) and ref.lower().endswith(".json"):
             raise HTTPException(422, "Se aceptan IDs del dataset o alertas en JSON, no rutas a ficheros")
+        if isinstance(ref, dict):
+            if motivo := motivo_de_rechazo(ref):
+                raise HTTPException(422, f"La alerta {ref.get('alert_id') or n} no se puede triar: {motivo}")
+            if not ref.get("alert_id"):  # la fila y el fichero guardado necesitan un ID desde el principio
+                ref = {**ref, "alert_id": completar_alerta(ref)["alert_id"]}  # lo demás lo completa triar(), con avisos
+        referencias.append(ref)
     return StreamingResponse(
-        _flujo(peticion.alertas, peticion.paralelo, peticion.demo),
+        _flujo(referencias, peticion.paralelo, peticion.demo),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )

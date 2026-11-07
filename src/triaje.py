@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import Any
 
 from src.agrupar import posiciones_duplicadas
-from src.evidencia import normalizar_alerta, reunir_evidencia
+from src.evidencia import completar_alerta, normalizar_alerta, reunir_evidencia
 from src.llm import ErrorLLM, analizar_alerta
 from src.policy import aplicar_politica
 from src.soc_client import ErrorSOC, SocClient
@@ -58,8 +58,8 @@ def triar(
     """Reúne la evidencia y, si con_llm, pide el análisis al modelo y aplica la política."""
     cliente = cliente or SocClient()
     inicio = time.perf_counter()
-    # Alertas de fuera del dataset pueden traer campos raros: se normalizan al entrar.
-    alerta = normalizar_alerta(alerta)
+    # Alertas de fuera del dataset pueden venir incompletas o con campos raros: se completan y normalizan al entrar.
+    alerta = normalizar_alerta(completar_alerta(alerta))
     evidencia = reunir_evidencia(alerta, cliente)
     resultado: dict[str, Any] = {
         "alert_id": alerta.get("alert_id"),
@@ -73,6 +73,8 @@ def triar(
         resultado["llm"] = llm.model_dump()
         # La IA propone; la política (código) decide severidad, escalado y permisos.
         resultado["politica"] = aplicar_politica(alerta, evidencia, llm.analisis).model_dump()
+        # Lo que se completó al cargar la alerta se enseña junto a los avisos de la política.
+        resultado["politica"]["avisos"] = list(alerta.get("avisos_de_carga") or []) + resultado["politica"]["avisos"]
         # Ticket en el formato de Deloitte, validado contra su esquema.
         ticket = construir_ticket(alerta, evidencia, resultado["llm"], resultado["politica"],
                                   segundos=time.perf_counter() - inicio)

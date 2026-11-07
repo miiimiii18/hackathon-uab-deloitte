@@ -3,8 +3,28 @@ import { h, icono } from "./dom.js";
 import { añadirAlertas, estado, triarFilas } from "./estado.js";
 import { aviso } from "./util.js";
 
+// Campos que conviene que traiga una alerta. Si falta alguno, se tría igual: el servidor lo completa
+// (catálogo de reglas, ID estable) o lo deja anotado como aviso en el resultado.
 const CAMPOS = ["alert_id", "rule_id", "severity", "created_at", "entities"];
 const vacio = (v) => v == null || v === "" || (typeof v === "object" && Object.keys(v).length === 0);
+const esObjeto = (a) => a != null && typeof a === "object" && !Array.isArray(a);
+
+// La misma regla que el servidor (motivo_de_rechazo en src/evidencia.py): solo se exige algo que investigar.
+function motivoRechazo(a) {
+  if (!esObjeto(a)) return "no es un objeto JSON";
+  if (["rule_id", "rule_name", "entities", "evidence"].every((c) => vacio(a[c]))) {
+    return "no trae nada que investigar (ni rule_id, ni rule_name, ni entities, ni evidence)";
+  }
+  return null;
+}
+
+// ID estable para una alerta sin alert_id (mismo contenido → mismo ID). El servidor lo reconoce por el prefijo y lo avisa.
+function idManual(a) {
+  const texto = JSON.stringify(a);
+  let x = 0x811c9dc5; // FNV-1a
+  for (let i = 0; i < texto.length; i++) { x ^= texto.charCodeAt(i); x = Math.imul(x, 0x01000193) >>> 0; }
+  return `ALR-MANUAL-${x.toString(16).toUpperCase().padStart(8, "0")}`;
+}
 
 // Acepta un objeto, una lista JSON o JSONL (una alerta por línea).
 export function parsearAlertas(texto) {
@@ -23,10 +43,12 @@ export function parsearAlertas(texto) {
     });
     if (!lista.length && !errores.length) errores.push("No es JSON válido");
   }
-  const items = lista.map((alerta) => ({
-    alerta,
-    faltan: alerta && typeof alerta === "object" && !Array.isArray(alerta) ? CAMPOS.filter((c) => vacio(alerta[c])) : CAMPOS,
-  }));
+  const items = lista.map((original) => {
+    const rechazo = motivoRechazo(original);
+    if (rechazo) return { alerta: original, rechazo, faltan: [] };
+    const alerta = vacio(original.alert_id) ? { ...original, alert_id: idManual(original) } : original;
+    return { alerta, rechazo: null, faltan: CAMPOS.filter((c) => vacio(original[c])) };
+  });
   return { items, errores };
 }
 
@@ -49,15 +71,21 @@ export function abrirPanel() {
   cerrarActual = cerrar;
 
   function mostrarValidacion({ items, errores }) {
-    validas = items.filter((i) => i.faltan.length === 0).map((i) => i.alerta);
+    validas = items.filter((i) => !i.rechazo).map((i) => i.alerta);
     resumen.replaceChildren(
       ...errores.map((e) => h("span", { class: "mal" }, e)),
-      ...items.flatMap((i, n) => (i.faltan.length
-        ? [h("span", { class: "mal" }, `${i.alerta?.alert_id ?? `Alerta ${n + 1}`}: faltan ${i.faltan.join(", ")}`)]
-        : [h("span", {}, `${i.alerta.alert_id} ✓`)])),
+      ...items.map((i, n) => (i.rechazo
+        ? h("span", { class: "mal" }, `${esObjeto(i.alerta) && i.alerta.alert_id ? i.alerta.alert_id : `Alerta ${n + 1}`}: ${i.rechazo}`)
+        : h("span", i.faltan.length ? { class: "falta" } : {},
+          `${i.alerta.alert_id} ✓${i.faltan.length ? ` · sin ${i.faltan.join(", ")} (se tría con aviso)` : ""}`))),
     );
-    if (items.length === 1 && items[0].faltan.length === 0) {
-      resumen.replaceChildren(...CAMPOS.map((c) => h("span", {}, `${c} ✓`)), ...errores.map((e) => h("span", { class: "mal" }, e)));
+    if (items.length === 1 && !items[0].rechazo) {
+      const { faltan } = items[0];
+      resumen.replaceChildren(
+        ...CAMPOS.map((c) => (faltan.includes(c)
+          ? h("span", { class: "falta" }, c === "alert_id" ? `alert_id: se asigna ${items[0].alerta.alert_id}` : `${c}: falta, se tría con aviso`)
+          : h("span", {}, `${c} ✓`))),
+        ...errores.map((e) => h("span", { class: "mal" }, e)));
     }
     pintarPie();
   }

@@ -94,3 +94,21 @@ def test_la_copia_de_una_duplicada_lleva_su_id_y_de_quien_es():
     assert copia["alert_id"] == "B" and copia["duplicada_de"] == "A"
     assert copia["alerta"]["alert_id"] == "B" and copia["ticket"]["ticket_id"] == "TKT-A"
     assert original["alert_id"] == "A"  # la original no se toca
+
+
+def test_una_alerta_pobre_se_tria_entera_y_los_avisos_de_carga_llegan_a_la_politica(monkeypatch):
+    import json
+
+    from src import evidencia
+    from tests.test_evidencia import CATALOGO, ClienteFalso
+    from tests.test_llm import ANALISIS_VALIDO, ApiFalsa
+
+    monkeypatch.setattr(evidencia, "catalogo", lambda: CATALOGO)
+    cliente = ClienteFalso()
+    cliente.traza = []
+    r = triaje.triar({"rule_id": "UC-EDR-002", "entities": {"hosts": ["WS-1"]}}, cliente=cliente,
+                     enviar=ApiFalsa(json.dumps(ANALISIS_VALIDO)))
+    assert r["alert_id"].startswith("ALR-MANUAL-")
+    assert r["ticket_errores"] == []
+    avisos = r["politica"]["avisos"]
+    assert avisos[0].startswith("La alerta no traía alert_id") and any("created_at" in a for a in avisos)
