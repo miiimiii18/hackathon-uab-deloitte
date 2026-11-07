@@ -25,6 +25,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
 
+from src.agrupar import posiciones_duplicadas
 from src.evidencia import normalizar_alerta, reunir_evidencia
 from src.llm import ErrorLLM, analizar_alerta
 from src.policy import aplicar_politica
@@ -125,6 +126,34 @@ def triar_en_paralelo(
             yield futuros[futuro], futuro.result()
 
 
+def preparar_lote(referencias: list[str], *, deduplicar: bool = True,
+                  crear_cliente: Callable[[], SocClient] = SocClient) -> tuple[list[Referencia], dict[int, int]]:
+    """Carga las alertas de un lote y marca las idénticas a otra anterior (posición → posición original).
+
+    Las que no se pueden cargar se dejan como referencia: el triaje dará su error en su fila.
+    """
+    if not deduplicar or len(referencias) < 2:
+        return list(referencias), {}
+    cliente = crear_cliente()
+    cargadas: list[dict[str, Any] | None] = []
+    for ref in referencias:
+        try:
+            cargadas.append(cargar_alerta(ref, cliente))
+        except (ErrorSOC, OSError, ValueError):
+            cargadas.append(None)
+    lote: list[Referencia] = [a if a is not None else ref for a, ref in zip(cargadas, referencias, strict=True)]
+    return lote, posiciones_duplicadas(cargadas)
+
+
+def copia_de_duplicada(original: dict[str, Any], referencia: Referencia) -> dict[str, Any]:
+    """El resultado de una alerta idéntica a otra: el de la original, con su ID y `duplicada_de`."""
+    nombre = referencia.get("alert_id", "?") if isinstance(referencia, dict) else referencia
+    copia = {**original, "alert_id": nombre, "duplicada_de": original.get("alert_id")}
+    if isinstance(referencia, dict) and "alerta" in original:
+        copia["alerta"] = normalizar_alerta(referencia)
+    return copia
+
+
 def triar_lote(referencias: list[Referencia], **opciones) -> list[dict[str, Any]]:
     """Como triar_en_paralelo, pero espera a todas y las devuelve en el orden original."""
     resultados: list[dict[str, Any]] = [{} for _ in referencias]
@@ -158,6 +187,7 @@ def _principal() -> None:
     parser.add_argument("--solo-evidencia", action="store_true", help="no llamar al LLM")
     parser.add_argument("--paralelo", type=int, default=PARALELO, help=f"alertas a la vez (máx. {MAX_PARALELO})")
     parser.add_argument("--salida", type=Path, help="carpeta donde guardar un .json por alerta")
+    parser.add_argument("--sin-dedup", action="store_true", help="triar también las alertas idénticas a otra del lote")
     args = parser.parse_args()
     con_llm = not args.solo_evidencia
 
@@ -176,13 +206,27 @@ def _principal() -> None:
         args.salida.mkdir(parents=True, exist_ok=True)
     n = len(args.alertas)
     inicio = time.perf_counter()
+    referencias, duplicadas = preparar_lote(args.alertas, deduplicar=not args.sin_dedup)
+    if duplicadas:
+        print(f"{len(duplicadas)} alertas idénticas a otra del lote (misma regla, entidades y evidencia): "
+              "no se vuelven a triar (usa --sin-dedup para triarlas)", file=sys.stderr)
+    unicas = [i for i in range(n) if i not in duplicadas]
     resultados: list[dict[str, Any]] = [{} for _ in args.alertas]
-    for hechas, (i, r) in enumerate(triar_en_paralelo(args.alertas, en_paralelo=args.paralelo, con_llm=con_llm), 1):
-        resultados[i] = r
-        print(f"[{hechas}/{n}] {r.get('alert_id')}: {_linea(r)} ({r['segundos_total']} s)", file=sys.stderr)
+
+    def guardar(i: int, r: dict[str, Any]) -> None:
         if args.salida:
             nombre = Path(str(r.get("alert_id") or f"alerta-{i}")).stem
             (args.salida / f"{nombre}.json").write_text(json.dumps(r, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    lote = [referencias[i] for i in unicas]
+    for hechas, (j, r) in enumerate(triar_en_paralelo(lote, en_paralelo=args.paralelo, con_llm=con_llm), 1):
+        i = unicas[j]
+        resultados[i] = r
+        print(f"[{hechas}/{len(unicas)}] {r.get('alert_id')}: {_linea(r)} ({r['segundos_total']} s)", file=sys.stderr)
+        guardar(i, r)
+    for d, o in duplicadas.items():
+        resultados[d] = copia_de_duplicada(resultados[o], referencias[d])
+        guardar(d, resultados[d])
     total = time.perf_counter() - inicio
     errores = sum(1 for r in resultados if "error" in r)
     print(

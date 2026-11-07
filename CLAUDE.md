@@ -47,7 +47,7 @@ varias alertas triadas ─► agrupar ─► ticket único del grupo ─► inve
 
 Principios que no se rompen (detalle en «Principios de diseño»): el LLM propone y redacta, **el código decide** severidad, escalado y permisos; el LLM no ejecuta nada; lo que viene de alertas y logs es dato no fiable; desconocido ≠ limpio.
 
-Módulos (`src/`): `soc_client.py` (cliente de la API con caché, traza y búsqueda exacta), `evidencia.py`, `llm.py`, `policy.py`, `ticket.py`, `triaje.py` (`triar`, `triar_en_paralelo`), `agrupar.py`, `investigacion.py`, `contencion.py`, `esquemas/` (esquemas copiados del dataset), `web/` (`api.py` FastAPI + `static/` HTML/CSS/JS sin build; ver [`docs/web.md`](docs/web.md)). Otros: `scripts/evaluar.py`, `scripts/preparar_demo.py`, `evaluacion/` (gold set `casos.json`, 9 alertas inventadas, resultados), `tests/` (160 tests).
+Módulos (`src/`): `soc_client.py` (cliente de la API con caché, traza y búsqueda exacta), `evidencia.py`, `llm.py`, `policy.py`, `ticket.py`, `triaje.py` (`triar`, `triar_en_paralelo`), `agrupar.py`, `investigacion.py`, `contencion.py`, `esquemas/` (esquemas copiados del dataset), `web/` (`api.py` FastAPI + `static/` HTML/CSS/JS sin build; ver [`docs/web.md`](docs/web.md)). Otros: `scripts/evaluar.py`, `scripts/preparar_demo.py`, `evaluacion/` (gold set `casos.json`, 9 alertas inventadas, resultados), `tests/` (166 tests).
 
 Endpoints web que importan: `POST /api/triaje` (SSE), `GET /api/grupos`, `POST /api/resultados/{id}/investigar`, `GET /api/resultados/{id}/informe`, `POST /api/resultados/{id}/decisiones`, `POST /api/resultados/{id}/acciones/{n}/ejecutar`, `GET /api/registro`.
 
@@ -56,9 +56,8 @@ Endpoints web que importan: `POST /api/triaje` (SSE), `GET /api/grupos`, `POST /
 Por orden de importancia para la defensa:
 1. **Ensayo de la demo con persona y cronómetro (dos veces) y vídeo/capturas del plan B.** Guion en [`docs/pitch.md`](docs/pitch.md). Antes: `python -m scripts.preparar_demo --informe` (ver abajo).
 2. **Congelar `main` las 2 últimas horas** (solo arreglos y demo).
-3. **Deduplicación conectada a la cola:** `deduplicar()` en `src/agrupar.py` existe y está probada (quita las 920 duplicadas) pero ni la cola ni la CLI la llaman.
-4. Que todo el equipo lea `politica_soc.md`, `empresa_tarvia.md` y los 10 runbooks.
-5. Mejoras opcionales: relacionar incidentes entre sí (`related_incidents` va vacío) y rastrear la cronología por todos los logs (hoy solo usa lo que reunió el triaje); `confidence` no baja con indicadores `unknown` (medido: no merece la pena); revisión humana independiente de las etiquetas del gold set.
+3. Que todo el equipo lea `politica_soc.md`, `empresa_tarvia.md` y los 10 runbooks.
+4. Mejoras opcionales: relacionar incidentes entre sí (`related_incidents` va vacío) y rastrear la cronología por todos los logs (hoy solo usa lo que reunió el triaje); `confidence` no baja con indicadores `unknown` (medido: no merece la pena); revisión humana independiente de las etiquetas del gold set.
 
 **Riesgos conocidos para el domingo** (todos en `docs/limitaciones.md`):
 - El modelo es inestable: puede escalar un falso positivo o dejar un ataque en `needs_more_info`. Tras el endurecimiento no se ha vuelto a cerrar un ataque en las pruebas, pero son reglas concretas, no una garantía.

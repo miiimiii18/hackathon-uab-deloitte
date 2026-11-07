@@ -1,6 +1,6 @@
 """Tests de src/agrupar.py: deduplicar, agrupar y un único ticket por grupo (sin red)."""
 
-from src.agrupar import agrupar, consolidar_grupo, deduplicar
+from src.agrupar import agrupar, consolidar_grupo, deduplicar, posiciones_duplicadas
 from src.ticket import validar_ticket
 from tests.test_ticket import EVIDENCIA, resultado
 
@@ -32,6 +32,14 @@ def test_deduplicar_quita_las_identicas_y_cuenta_las_repetidas():
     unicas, repetidas = deduplicar([a, copia, otra])
     assert [x["alert_id"] for x in unicas] == [a["alert_id"], otra["alert_id"]]
     assert repetidas == {a["alert_id"]: [copia["alert_id"]]}
+
+
+def test_posiciones_duplicadas_apunta_a_la_primera_y_salta_las_desconocidas():
+    a = alerta(1, **host("PC1"))
+    copia = {**a, "alert_id": "ALR-20261009-000002"}
+    otra = alerta(3, **host("PC2"))
+    assert posiciones_duplicadas([a, None, otra, copia, dict(copia)]) == {3: 0, 4: 0}
+    assert posiciones_duplicadas([None, None]) == {}
 
 
 def test_dos_alertas_del_mismo_equipo_van_juntas_y_ordenadas_por_hora():

@@ -12,12 +12,14 @@ Arrancar:  python -m src.web      (necesita la API del SOC en SOC_API_URL)
 
 from __future__ import annotations
 
+import copy
 import json
 import logging
 import queue
 import re
 import threading
 import time
+from collections import defaultdict
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
@@ -31,7 +33,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from src import llm
-from src.agrupar import agrupar_resultados
+from src.agrupar import agrupar_resultados, posiciones_duplicadas
 from src.contencion import ErrorContencion, ejecutar_accion, registrar_en_ticket
 from src.investigacion import investigar
 from src.policy import SEVERIDADES
@@ -174,6 +176,7 @@ def resumen_resultado(r: dict[str, Any]) -> dict[str, Any]:
         "acciones_ejecutadas": len(t.get("executed_actions") or []),
         "resuelta": any(h.get("tipo") in ("cerrar", "escalar_n2") for h in humano),
         "correccion": next((h for h in reversed(humano) if h.get("tipo") == "corregir"), None),
+        "duplicada_de": r.get("duplicada_de"),
     }
 
 
@@ -465,16 +468,52 @@ def _trabajo_demo(i: int, referencia: str | dict[str, Any], salida: queue.Queue)
     salida.put({"tipo": "resultado", "posicion": i, "alert_id": nombre, "resumen": resumen})
 
 
+def _alerta_de(referencia: str | dict[str, Any]) -> dict[str, Any] | None:
+    """La alerta completa de una referencia: la pegada tal cual o la del dataset (None si no está)."""
+    return referencia if isinstance(referencia, dict) else _alertas_completas().get(referencia)
+
+
+def _evento_duplicada(posicion: int, referencia: str | dict[str, Any], original: dict[str, Any], demo: bool) -> dict[str, Any]:
+    """Resultado de una alerta idéntica a otra del lote: no se vuelve a triar, se copia el de la original.
+
+    Fuera del modo demo, la copia se guarda con su propio ID para que se pueda abrir su detalle.
+    """
+    nombre = referencia.get("alert_id", "?") if isinstance(referencia, dict) else referencia
+    origen = original["alert_id"]
+    resumen = {**original["resumen"], "alert_id": nombre, "duplicada_de": origen}
+    alerta = _alerta_de(referencia)
+    if alerta:
+        resumen["meta"] = resumen_alerta(alerta)
+    if not demo and nombre != origen and "error" not in original["resumen"]:
+        with _cerrojo:
+            completo = _resultados.get(origen)
+        if completo:
+            copia = {**copy.deepcopy(completo), "alert_id": nombre, "duplicada_de": origen, "humano": []}
+            if alerta:
+                copia["alerta"], copia["meta"] = alerta, resumen_alerta(alerta)
+            try:
+                _guardar(copia)
+            except (OSError, HTTPException, TypeError, ValueError) as e:
+                LOG.warning("No se pudo guardar la copia de la duplicada %s: %s", nombre, e)
+    return {"tipo": "resultado", "posicion": posicion, "alert_id": nombre, "resumen": resumen}
+
+
 def _flujo(referencias: list[str | dict[str, Any]], paralelo: int, demo: bool) -> Iterator[str]:
     salida: queue.Queue = queue.Queue()
-    hilos = max(1, min(paralelo, MAX_PARALELO, len(referencias)))
+    # Las alertas idénticas (misma regla, entidades y evidencia) solo se trían una vez.
+    duplicadas = posiciones_duplicadas([_alerta_de(r) for r in referencias])
+    copias: dict[int, list[int]] = defaultdict(list)
+    for d, o in duplicadas.items():
+        copias[o].append(d)
+    unicas = [i for i in range(len(referencias)) if i not in duplicadas]
+    hilos = max(1, min(paralelo, MAX_PARALELO, len(unicas)))
     ejecutor = ThreadPoolExecutor(max_workers=hilos)
     inicio = time.perf_counter()
-    yield _sse({"tipo": "inicio", "total": len(referencias), "paralelo": hilos})
+    yield _sse({"tipo": "inicio", "total": len(referencias), "paralelo": hilos, "duplicadas": len(duplicadas)})
     try:
-        for i, ref in enumerate(referencias):
-            ejecutor.submit(_trabajo_demo if demo else _trabajo, i, ref, salida)
-        pendientes = len(referencias)
+        for i in unicas:
+            ejecutor.submit(_trabajo_demo if demo else _trabajo, i, referencias[i], salida)
+        pendientes = len(unicas)
         while pendientes:
             try:
                 evento = salida.get(timeout=PULSO)
@@ -484,6 +523,9 @@ def _flujo(referencias: list[str | dict[str, Any]], paralelo: int, demo: bool) -
             if evento["tipo"] == "resultado":
                 pendientes -= 1
             yield _sse(evento)
+            if evento["tipo"] == "resultado":
+                for d in copias.get(evento["posicion"], []):
+                    yield _sse(_evento_duplicada(d, referencias[d], evento, demo))
         yield _sse({"tipo": "fin", "segundos": round(time.perf_counter() - inicio, 1)})
     except Exception as e:  # se avisa al navegador en vez de cortar la conexión sin explicación
         LOG.exception("Fallo en el flujo de triaje")
