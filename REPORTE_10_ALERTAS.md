@@ -14,8 +14,8 @@ Generado automáticamente a partir de los resultados reales del sistema (triaje 
 | 2 | `ALR-20261020-011910` | Correo de supuesta factura de Packaging Iberia reportado como phishing por un usuario de Compras | Ataque real | Media | Escalar a N2 |
 | 3 | `ALR-20261008-011789` | Correo de suplantación solicitando cambio de IBAN de proveedor por 148.320 € | Ataque real | Alta | Escalar a N2 |
 | 4 | `ALR-20261012-011829` | AnyDesk no autorizado en portátil de tienda con sesión entrante y acceso a compartida de cierre | Ataque real | Alta | Escalar a N2 |
-| 5 | `ALR-20261013-011901` | Confusión de dependencias en CI-RUNNER01: un paquete npm malicioso lee secretos de despliegue y exfiltra datos | Ataque real | Alta | Escalar a N2 |
-| 6 | `ALR-20261011-011877` | Acceso VPN de Logisoft desde Letonia en domingo de madrugada | Falta información (revisión humana) | Media | Revisión humana |
+| 5 | `ALR-20261011-011877` | Acceso VPN de Logisoft desde Letonia en domingo de madrugada | Falta información (revisión humana) | Media | Revisión humana |
+| 6 | `ALR-20261013-011901` | Confusión de dependencias en CI-RUNNER01: un paquete npm malicioso lee secretos de despliegue y exfiltra datos | Ataque real | Alta | Escalar a N2 |
 | 7 | `ALR-20261008-011833` | Escaneo de inyección SQL contra la tienda online durante el pentest autorizado | Actividad autorizada | Baja | Cerrar |
 | 8 | `ALR-20261005-000395` | PowerShell con comando codificado ejecutado por el agente SCCM en un portátil de HQ | Falsa alarma | Informativa | Cerrar |
 | 9 | `ALR-20261005-000043` | Inicio de sesión de Javier Sanz desde Barcelona y luego desde Dublín en menos de 30 minutos | Falsa alarma | Informativa | Cerrar |
@@ -231,7 +231,53 @@ Pruebas que cita:
 - Qué datos se leyeron realmente de \\FS01\Tiendas\Cierres y ha habido transferencia saliente (posible exfiltración)?
 - La sesión entrante desde Marruecos sigue activa o ya se ha cerrado? Hay actividad posterior del proceso AnyDesk.
 
-### 5. ALR-20261013-011901 — Confusión de dependencias en CI-RUNNER01: un paquete npm malicioso lee secretos de despliegue y exfiltra datos
+### 5. ALR-20261011-011877 — Acceso VPN de Logisoft desde Letonia en domingo de madrugada
+
+**Conclusión: Falta información (revisión humana) · gravedad media · Revisión humana**
+
+**Por qué ha saltado**
+
+- Regla `UC-VPN-001` (Acceso VPN de proveedor fuera de horario o desde origen nuevo) de VPN, gravedad de la regla Baja.
+- Cuenta de tercero conectada fuera de su ventana contractual o desde un ASN no visto.
+- Hora de la alerta: 11/10/2026 03:40 (hora de España).
+
+**Qué se ha investigado**
+
+- 14 consultas a la API del SOC: 1 de directorio de personas, 1 de inteligencia, 2 de calendario de cambios, 10 de registros ±24 h (fuentes: ad_events, firewall, idp_audit, idp_signins, vpn).
+- Inteligencia de `77.90.185.20`: desconocida (no es limpia); GeoIP: Vilna, LT, Limited Network LTD, hosting.
+- Calendario de cambios: CHG-2026-1071.
+
+**Qué concluye la IA** (propone; confianza 0.45)
+
+> La cuenta de proveedor ext.logisoft se conectó por VPN el domingo 11-oct a las 03:38 hora local (01:38 UTC) desde Vilna, Letonia (AS213790, Limited Network LTD), un origen no visto y fuera de su ventana contractual (lunes a viernes 8-18 h). La autenticación con TOTP fue aprobada, pero el dispositivo no es conforme (device_compliant=false) y el acceso se dirigió a WMS01 (10.40.2.10:3389) con 9 MB transmitidos. El único cambio aprobado (CHG-2026-1071) cubre una actualización del WMS el 16-oct, por lo que NO autoriza este acceso del 11-oct. La evidencia es contradictoria: el ASN figura como hosting y el evento de desconexión muestra un país distinto (Bulgaria), lo que sugiere posible suplantación del origen. No hay evidencia de actividad posterior ni de exfiltración, pero tampoco se descarta compromiso.
+
+Pruebas que cita:
+
+- `VPN-0010704` (alerta): Evento VPN real: ext.logisoft se conecta a las 01:38 UTC desde 77.90.185.20 (Letonia) con MFA TOTP aprobado y device_compliant=false
+- `FW-0026536` (alerta): Firewall real: desde la IP asignada 10.99.60.10 se permite RDP (3389) hacia WMS01 (10.40.2.10) con 9.000.000 bytes transmitidos en zona LOGISTICS-IT
+- `SIGN-0084059` (alerta): IdP real: inicio de sesión VPN exitoso desde Vilna, Letonia, con MFA TOTP aprobado, device_compliant=false y conditional_access notApplied — *evento que no venía en la alerta*
+- `VPN-0010705` (alerta): Evento de desconexión a las 04:48 UTC desde la misma IP pero con país Bulgaria y 55 MB descargados, lo que contradice el origen reportado y sugiere posible manipulación del origen — *evento que no venía en la alerta*
+- `CHG-2026-1071` (cambios_aprobados): Existe un cambio aprobado para acceso de Logisoft fuera de horario, pero cubre el 16-oct 21:00-23:59, no el 11-oct de la alerta
+- `77.90.185.20` (inteligencia): La IP 77.90.185.20 es de AS213790 (Limited Network LTD), clasificada como hosting, no como proveedor de VPN ni TOR, sin marcadores maliciosos conocidos
+
+**Qué decide el código** (política del SOC, no la IA)
+
+- Gravedad: Regla baja × criticidad Media = baja. Ajuste +1 (+1: ejecución o acceso confirmado). Final: media.
+- Plazo (SLA): triaje en 4 h; A N2 si tras el triaje hay indicios de compromiso; avisar a: —.
+
+**Acciones (contención y escalado)**
+
+- Sin contención propuesta: la decide la persona tras revisarla.
+- Escalado: Revisión humana.
+
+**Preguntas abiertas para quien lo revise**
+
+- ¿Es legítimo el acceso del domingo desde Letonia con un dispositivo no conforme, o la cuenta ext.logisoft ha sido comprometida?
+- ¿Por qué el evento de desconexión muestra Bulgaria mientras la conexión se atribuye a Letonia?
+- ¿Qué actividad real realizó ext.logisoft en WMS01 durante la sesión (archivos consultados, cambios)?
+- ¿El dispositivo no conforme y el conditional_access no aplicado violan la política de acceso de Tarvia?
+
+### 6. ALR-20261013-011901 — Confusión de dependencias en CI-RUNNER01: un paquete npm malicioso lee secretos de despliegue y exfiltra datos
 
 **Conclusión: Ataque real · gravedad alta · Escalar a N2**
 
@@ -283,52 +329,6 @@ Pruebas que cita:
 - ¿Hay actividad posterior sospechosa desde CI-RUNNER01 o desde la cuenta de despliegue AWS tras el POST del 13-10 a las 12:22?
 - ¿Qué permisos tenía la clave svc_ecom_deploy en tarvia-prod y se ha detectado uso no autorizado tras la exfiltración?
 - ¿Se ha revisado si el paquete malicioso dejó persistencia o si otros builds consumieron tarvia-checkout-utils@9.9.1?
-
-### 6. ALR-20261011-011877 — Acceso VPN de Logisoft desde Letonia en domingo de madrugada
-
-**Conclusión: Falta información (revisión humana) · gravedad media · Revisión humana**
-
-**Por qué ha saltado**
-
-- Regla `UC-VPN-001` (Acceso VPN de proveedor fuera de horario o desde origen nuevo) de VPN, gravedad de la regla Baja.
-- Cuenta de tercero conectada fuera de su ventana contractual o desde un ASN no visto.
-- Hora de la alerta: 11/10/2026 03:40 (hora de España).
-
-**Qué se ha investigado**
-
-- 14 consultas a la API del SOC: 1 de directorio de personas, 1 de inteligencia, 2 de calendario de cambios, 10 de registros ±24 h (fuentes: ad_events, firewall, idp_audit, idp_signins, vpn).
-- Inteligencia de `77.90.185.20`: desconocida (no es limpia); GeoIP: Vilna, LT, Limited Network LTD, hosting.
-- Calendario de cambios: CHG-2026-1071.
-
-**Qué concluye la IA** (propone; confianza 0.45)
-
-> La cuenta de proveedor ext.logisoft se conectó por VPN el domingo 11-oct a las 03:38 hora local (01:38 UTC) desde Vilna, Letonia (AS213790, Limited Network LTD), un origen no visto y fuera de su ventana contractual (lunes a viernes 8-18 h). La autenticación con TOTP fue aprobada, pero el dispositivo no es conforme (device_compliant=false) y el acceso se dirigió a WMS01 (10.40.2.10:3389) con 9 MB transmitidos. El único cambio aprobado (CHG-2026-1071) cubre una actualización del WMS el 16-oct, por lo que NO autoriza este acceso del 11-oct. La evidencia es contradictoria: el ASN figura como hosting y el evento de desconexión muestra un país distinto (Bulgaria), lo que sugiere posible suplantación del origen. No hay evidencia de actividad posterior ni de exfiltración, pero tampoco se descarta compromiso.
-
-Pruebas que cita:
-
-- `VPN-0010704` (alerta): Evento VPN real: ext.logisoft se conecta a las 01:38 UTC desde 77.90.185.20 (Letonia) con MFA TOTP aprobado y device_compliant=false
-- `FW-0026536` (alerta): Firewall real: desde la IP asignada 10.99.60.10 se permite RDP (3389) hacia WMS01 (10.40.2.10) con 9.000.000 bytes transmitidos en zona LOGISTICS-IT
-- `SIGN-0084059` (alerta): IdP real: inicio de sesión VPN exitoso desde Vilna, Letonia, con MFA TOTP aprobado, device_compliant=false y conditional_access notApplied — *evento que no venía en la alerta*
-- `VPN-0010705` (alerta): Evento de desconexión a las 04:48 UTC desde la misma IP pero con país Bulgaria y 55 MB descargados, lo que contradice el origen reportado y sugiere posible manipulación del origen — *evento que no venía en la alerta*
-- `CHG-2026-1071` (cambios_aprobados): Existe un cambio aprobado para acceso de Logisoft fuera de horario, pero cubre el 16-oct 21:00-23:59, no el 11-oct de la alerta
-- `77.90.185.20` (inteligencia): La IP 77.90.185.20 es de AS213790 (Limited Network LTD), clasificada como hosting, no como proveedor de VPN ni TOR, sin marcadores maliciosos conocidos
-
-**Qué decide el código** (política del SOC, no la IA)
-
-- Gravedad: Regla baja × criticidad Media = baja. Ajuste +1 (+1: ejecución o acceso confirmado). Final: media.
-- Plazo (SLA): triaje en 4 h; A N2 si tras el triaje hay indicios de compromiso; avisar a: —.
-
-**Acciones (contención y escalado)**
-
-- Sin contención propuesta: la decide la persona tras revisarla.
-- Escalado: Revisión humana.
-
-**Preguntas abiertas para quien lo revise**
-
-- ¿Es legítimo el acceso del domingo desde Letonia con un dispositivo no conforme, o la cuenta ext.logisoft ha sido comprometida?
-- ¿Por qué el evento de desconexión muestra Bulgaria mientras la conexión se atribuye a Letonia?
-- ¿Qué actividad real realizó ext.logisoft en WMS01 durante la sesión (archivos consultados, cambios)?
-- ¿El dispositivo no conforme y el conditional_access no aplicado violan la política de acceso de Tarvia?
 
 ### 7. ALR-20261008-011833 — Escaneo de inyección SQL contra la tienda online durante el pentest autorizado
 

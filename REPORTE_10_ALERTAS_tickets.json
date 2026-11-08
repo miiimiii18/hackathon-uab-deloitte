@@ -557,6 +557,117 @@
     "modelo": "ornith"
   },
   {
+    "ticket_id": "TKT-20261011-011877",
+    "alert_ids": [
+      "ALR-20261011-011877"
+    ],
+    "title": "Acceso VPN de Logisoft desde Letonia en domingo de madrugada",
+    "verdict": "needs_more_info",
+    "confidence": 0.45,
+    "severity": "medium",
+    "severity_rationale": "Regla low × criticidad Media = low. Ajuste +1 (+1: ejecución o acceso confirmado). Final: medium. Sin activo conocido en la CMDB: se asume criticidad Media (dato a revisar).",
+    "affected": {
+      "users": [
+        "ext.logisoft@tarvia.example"
+      ],
+      "hosts": [],
+      "business_services": [],
+      "customers": []
+    },
+    "summary": "La cuenta de proveedor ext.logisoft se conectó por VPN el domingo 11-oct a las 03:38 hora local (01:38 UTC) desde Vilna, Letonia (AS213790, Limited Network LTD), un origen no visto y fuera de su ventana contractual (lunes a viernes 8-18 h). La autenticación con TOTP fue aprobada, pero el dispositivo no es conforme (device_compliant=false) y el acceso se dirigió a WMS01 (10.40.2.10:3389) con 9 MB transmitidos. El único cambio aprobado (CHG-2026-1071) cubre una actualización del WMS el 16-oct, por lo que NO autoriza este acceso del 11-oct. La evidencia es contradictoria: el ASN figura como hosting y el evento de desconexión muestra un país distinto (Bulgaria), lo que sugiere posible suplantación del origen. No hay evidencia de actividad posterior ni de exfiltración, pero tampoco se descarta compromiso.",
+    "evidence": [
+      {
+        "source": "alerta",
+        "event_id": "ALR-20261011-011877",
+        "finding": "La regla UC-VPN-001 detecta una cuenta de tercero conectada fuera de su ventana contractual (L-V 8-18 h) y desde un ASN no visto; la alerta marca local_time como domingo 03:38 y ASN como Limited Network LTD"
+      },
+      {
+        "source": "alerta",
+        "event_id": "ALR-20261011-011877",
+        "finding": "El usuario ext.logisoft está documentado como proveedor del WMS con origen habitual en Madrid (AS64650) y acceso solo a WMS01 por RDP"
+      },
+      {
+        "source": "alerta",
+        "event_id": "VPN-0010704",
+        "finding": "Evento VPN real: ext.logisoft se conecta a las 01:38 UTC desde 77.90.185.20 (Letonia) con MFA TOTP aprobado y device_compliant=false"
+      },
+      {
+        "source": "alerta",
+        "event_id": "FW-0026536",
+        "finding": "Firewall real: desde la IP asignada 10.99.60.10 se permite RDP (3389) hacia WMS01 (10.40.2.10) con 9.000.000 bytes transmitidos en zona LOGISTICS-IT"
+      },
+      {
+        "source": "alerta",
+        "event_id": "SIGN-0084059",
+        "finding": "IdP real: inicio de sesión VPN exitoso desde Vilna, Letonia, con MFA TOTP aprobado, device_compliant=false y conditional_access notApplied"
+      },
+      {
+        "source": "alerta",
+        "event_id": "VPN-0010705",
+        "finding": "Evento de desconexión a las 04:48 UTC desde la misma IP pero con país Bulgaria y 55 MB descargados, lo que contradice el origen reportado y sugiere posible manipulación del origen"
+      },
+      {
+        "source": "cambios_aprobados",
+        "event_id": "CHG-2026-1071",
+        "finding": "Existe un cambio aprobado para acceso de Logisoft fuera de horario, pero cubre el 16-oct 21:00-23:59, no el 11-oct de la alerta"
+      },
+      {
+        "source": "inteligencia",
+        "event_id": "77.90.185.20",
+        "finding": "La IP 77.90.185.20 es de AS213790 (Limited Network LTD), clasificada como hosting, no como proveedor de VPN ni TOR, sin marcadores maliciosos conocidos"
+      }
+    ],
+    "enrichment": [
+      {
+        "indicator": "77.90.185.20",
+        "type": "ip",
+        "source": "ti_feed",
+        "result": "sin coincidencias en el TIP (desconocido, no limpio)"
+      },
+      {
+        "indicator": "77.90.185.20",
+        "type": "ip",
+        "source": "geoip_asn",
+        "result": "Limited Network LTD, Vilna, LT, hosting"
+      }
+    ],
+    "mitre": [
+      "T1133"
+    ],
+    "recommended_actions": [
+      {
+        "action": "human_review",
+        "target": "ticket",
+        "requires_approval": true,
+        "justification": "needs_more_info: un analista debe revisar las preguntas abiertas",
+        "aprobador": "N1",
+        "permitida": true,
+        "nota": ""
+      }
+    ],
+    "executed_actions": [],
+    "escalation": {
+      "escalate": false,
+      "to": "",
+      "reason": ""
+    },
+    "open_questions": [
+      "¿Es legítimo el acceso del domingo desde Letonia con un dispositivo no conforme, o la cuenta ext.logisoft ha sido comprometida?",
+      "¿Por qué el evento de desconexión muestra Bulgaria mientras la conexión se atribuye a Letonia?",
+      "¿Qué actividad real realizó ext.logisoft en WMS01 durante la sesión (archivos consultados, cambios)?",
+      "¿El dispositivo no conforme y el conditional_access no aplicado violan la política de acceso de Tarvia?"
+    ],
+    "triage_seconds": 11,
+    "decision": "revisar",
+    "sla": {
+      "tiempo_triaje": "4 h",
+      "escalado": "A N2 si tras el triaje hay indicios de compromiso",
+      "notificar": "—"
+    },
+    "veredicto_llm": "needs_more_info",
+    "modelo": "ornith"
+  },
+  {
     "ticket_id": "TKT-20261013-011901",
     "alert_ids": [
       "ALR-20261013-011901"
@@ -687,117 +798,6 @@
       "notificar": "Responsable SOC"
     },
     "veredicto_llm": "true_positive",
-    "modelo": "ornith"
-  },
-  {
-    "ticket_id": "TKT-20261011-011877",
-    "alert_ids": [
-      "ALR-20261011-011877"
-    ],
-    "title": "Acceso VPN de Logisoft desde Letonia en domingo de madrugada",
-    "verdict": "needs_more_info",
-    "confidence": 0.45,
-    "severity": "medium",
-    "severity_rationale": "Regla low × criticidad Media = low. Ajuste +1 (+1: ejecución o acceso confirmado). Final: medium. Sin activo conocido en la CMDB: se asume criticidad Media (dato a revisar).",
-    "affected": {
-      "users": [
-        "ext.logisoft@tarvia.example"
-      ],
-      "hosts": [],
-      "business_services": [],
-      "customers": []
-    },
-    "summary": "La cuenta de proveedor ext.logisoft se conectó por VPN el domingo 11-oct a las 03:38 hora local (01:38 UTC) desde Vilna, Letonia (AS213790, Limited Network LTD), un origen no visto y fuera de su ventana contractual (lunes a viernes 8-18 h). La autenticación con TOTP fue aprobada, pero el dispositivo no es conforme (device_compliant=false) y el acceso se dirigió a WMS01 (10.40.2.10:3389) con 9 MB transmitidos. El único cambio aprobado (CHG-2026-1071) cubre una actualización del WMS el 16-oct, por lo que NO autoriza este acceso del 11-oct. La evidencia es contradictoria: el ASN figura como hosting y el evento de desconexión muestra un país distinto (Bulgaria), lo que sugiere posible suplantación del origen. No hay evidencia de actividad posterior ni de exfiltración, pero tampoco se descarta compromiso.",
-    "evidence": [
-      {
-        "source": "alerta",
-        "event_id": "ALR-20261011-011877",
-        "finding": "La regla UC-VPN-001 detecta una cuenta de tercero conectada fuera de su ventana contractual (L-V 8-18 h) y desde un ASN no visto; la alerta marca local_time como domingo 03:38 y ASN como Limited Network LTD"
-      },
-      {
-        "source": "alerta",
-        "event_id": "ALR-20261011-011877",
-        "finding": "El usuario ext.logisoft está documentado como proveedor del WMS con origen habitual en Madrid (AS64650) y acceso solo a WMS01 por RDP"
-      },
-      {
-        "source": "alerta",
-        "event_id": "VPN-0010704",
-        "finding": "Evento VPN real: ext.logisoft se conecta a las 01:38 UTC desde 77.90.185.20 (Letonia) con MFA TOTP aprobado y device_compliant=false"
-      },
-      {
-        "source": "alerta",
-        "event_id": "FW-0026536",
-        "finding": "Firewall real: desde la IP asignada 10.99.60.10 se permite RDP (3389) hacia WMS01 (10.40.2.10) con 9.000.000 bytes transmitidos en zona LOGISTICS-IT"
-      },
-      {
-        "source": "alerta",
-        "event_id": "SIGN-0084059",
-        "finding": "IdP real: inicio de sesión VPN exitoso desde Vilna, Letonia, con MFA TOTP aprobado, device_compliant=false y conditional_access notApplied"
-      },
-      {
-        "source": "alerta",
-        "event_id": "VPN-0010705",
-        "finding": "Evento de desconexión a las 04:48 UTC desde la misma IP pero con país Bulgaria y 55 MB descargados, lo que contradice el origen reportado y sugiere posible manipulación del origen"
-      },
-      {
-        "source": "cambios_aprobados",
-        "event_id": "CHG-2026-1071",
-        "finding": "Existe un cambio aprobado para acceso de Logisoft fuera de horario, pero cubre el 16-oct 21:00-23:59, no el 11-oct de la alerta"
-      },
-      {
-        "source": "inteligencia",
-        "event_id": "77.90.185.20",
-        "finding": "La IP 77.90.185.20 es de AS213790 (Limited Network LTD), clasificada como hosting, no como proveedor de VPN ni TOR, sin marcadores maliciosos conocidos"
-      }
-    ],
-    "enrichment": [
-      {
-        "indicator": "77.90.185.20",
-        "type": "ip",
-        "source": "ti_feed",
-        "result": "sin coincidencias en el TIP (desconocido, no limpio)"
-      },
-      {
-        "indicator": "77.90.185.20",
-        "type": "ip",
-        "source": "geoip_asn",
-        "result": "Limited Network LTD, Vilna, LT, hosting"
-      }
-    ],
-    "mitre": [
-      "T1133"
-    ],
-    "recommended_actions": [
-      {
-        "action": "human_review",
-        "target": "ticket",
-        "requires_approval": true,
-        "justification": "needs_more_info: un analista debe revisar las preguntas abiertas",
-        "aprobador": "N1",
-        "permitida": true,
-        "nota": ""
-      }
-    ],
-    "executed_actions": [],
-    "escalation": {
-      "escalate": false,
-      "to": "",
-      "reason": ""
-    },
-    "open_questions": [
-      "¿Es legítimo el acceso del domingo desde Letonia con un dispositivo no conforme, o la cuenta ext.logisoft ha sido comprometida?",
-      "¿Por qué el evento de desconexión muestra Bulgaria mientras la conexión se atribuye a Letonia?",
-      "¿Qué actividad real realizó ext.logisoft en WMS01 durante la sesión (archivos consultados, cambios)?",
-      "¿El dispositivo no conforme y el conditional_access no aplicado violan la política de acceso de Tarvia?"
-    ],
-    "triage_seconds": 11,
-    "decision": "revisar",
-    "sla": {
-      "tiempo_triaje": "4 h",
-      "escalado": "A N2 si tras el triaje hay indicios de compromiso",
-      "notificar": "—"
-    },
-    "veredicto_llm": "needs_more_info",
     "modelo": "ornith"
   },
   {

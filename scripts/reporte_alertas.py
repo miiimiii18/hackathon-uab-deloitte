@@ -165,7 +165,7 @@ def generar(ids: list[str]) -> tuple[str, list[dict[str, Any]]]:
     grupo_de = {i: g for g in grupos for i in g["alert_ids"]}
 
     orden = {"escalar": 0, "revisar": 1, "cerrar": 2}
-    ids_orden = sorted(ids, key=lambda i: (0 if i in grupo_de else orden.get(resultados[i]["politica"]["decision"], 3), ids.index(i)))
+    ids_orden = list(ids)  # en el mismo orden en que vienen en el fichero (el de Deloitte)
     fecha = max(r.get("triado_en", "") for r in resultados.values())[:16].replace("T", " ")
     cuenta = {d: sum(1 for i in ids if (("escalar" if i in grupo_de else resultados[i]["politica"]["decision"]) == d)) for d in orden}
 
