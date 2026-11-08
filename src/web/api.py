@@ -3,7 +3,7 @@
 La web solo MUESTRA lo que decide el backend (src/triaje.py, src/policy.py): aquí no se
 recalcula severidad, escalado ni permisos. Lo único que añade es el transporte:
 - /api/triaje tría alertas en paralelo y va enviando cada etapa por SSE;
-- los resultados se guardan en data/out/web/ (memoria + disco), que es también el «modo demo»;
+- los resultados se guardan en data/out/web/ (memoria + disco) y se cargan al arrancar;
 - la contención se ejecuta por el índice de la acción en el ticket guardado en el servidor,
   nunca con una acción que mande el navegador (así `permitida` no se puede manipular).
 
@@ -453,7 +453,6 @@ def registro_contencion() -> list[dict[str, Any]]:
 class PeticionTriaje(BaseModel):
     alertas: list[str | dict[str, Any]]
     paralelo: int = PARALELO
-    demo: bool = False
 
 
 def _sse(evento: dict[str, Any]) -> str:
@@ -505,28 +504,15 @@ def _trabajo(i: int, referencia: str | dict[str, Any], salida: queue.Queue) -> N
     salida.put({"tipo": "resultado", "posicion": i, "alert_id": nombre, "resumen": resumen})
 
 
-def _trabajo_demo(i: int, referencia: str | dict[str, Any], salida: queue.Queue) -> None:
-    """Modo demo: reproduce el recorrido con un resultado guardado, sin tocar la API ni el LLM."""
-    nombre = referencia.get("alert_id", "?") if isinstance(referencia, dict) else referencia
-    for etapa in ("evidencia", "ia", "politica"):
-        salida.put({"tipo": "etapa", "posicion": i, "alert_id": nombre, "etapa": etapa})
-        time.sleep(0.5 + 0.15 * (i % 4))
-    try:
-        resumen = resumen_resultado(_obtener(nombre))
-    except HTTPException as e:
-        resumen = {"alert_id": nombre, "error": e.detail}
-    salida.put({"tipo": "resultado", "posicion": i, "alert_id": nombre, "resumen": resumen})
-
-
 def _alerta_de(referencia: str | dict[str, Any]) -> dict[str, Any] | None:
     """La alerta completa de una referencia: la pegada tal cual o la del dataset (None si no está)."""
     return referencia if isinstance(referencia, dict) else _alertas_completas().get(referencia)
 
 
-def _evento_duplicada(posicion: int, referencia: str | dict[str, Any], original: dict[str, Any], demo: bool) -> dict[str, Any]:
+def _evento_duplicada(posicion: int, referencia: str | dict[str, Any], original: dict[str, Any]) -> dict[str, Any]:
     """Resultado de una alerta idéntica a otra del lote: no se vuelve a triar, se copia el de la original.
 
-    Fuera del modo demo, la copia se guarda con su propio ID para que se pueda abrir su detalle.
+    La copia se guarda con su propio ID para que se pueda abrir su detalle.
     """
     nombre = referencia.get("alert_id", "?") if isinstance(referencia, dict) else referencia
     origen = original["alert_id"]
@@ -534,7 +520,7 @@ def _evento_duplicada(posicion: int, referencia: str | dict[str, Any], original:
     alerta = _alerta_de(referencia)
     if alerta:
         resumen["meta"] = resumen_alerta(alerta)
-    if not demo and nombre != origen and "error" not in original["resumen"]:
+    if nombre != origen and "error" not in original["resumen"]:
         with _cerrojo:
             completo = _resultados.get(origen)
         if completo:
@@ -548,7 +534,7 @@ def _evento_duplicada(posicion: int, referencia: str | dict[str, Any], original:
     return {"tipo": "resultado", "posicion": posicion, "alert_id": nombre, "resumen": resumen}
 
 
-def _flujo(referencias: list[str | dict[str, Any]], paralelo: int, demo: bool) -> Iterator[str]:
+def _flujo(referencias: list[str | dict[str, Any]], paralelo: int) -> Iterator[str]:
     salida: queue.Queue = queue.Queue()
     # Las alertas idénticas (misma regla, entidades y evidencia) solo se trían una vez.
     duplicadas = posiciones_duplicadas([_alerta_de(r) for r in referencias])
@@ -562,7 +548,7 @@ def _flujo(referencias: list[str | dict[str, Any]], paralelo: int, demo: bool) -
     yield _sse({"tipo": "inicio", "total": len(referencias), "paralelo": hilos, "duplicadas": len(duplicadas)})
     try:
         for i in unicas:
-            ejecutor.submit(_trabajo_demo if demo else _trabajo, i, referencias[i], salida)
+            ejecutor.submit(_trabajo, i, referencias[i], salida)
         pendientes = len(unicas)
         while pendientes:
             try:
@@ -575,7 +561,7 @@ def _flujo(referencias: list[str | dict[str, Any]], paralelo: int, demo: bool) -
             yield _sse(evento)
             if evento["tipo"] == "resultado":
                 for d in copias.get(evento["posicion"], []):
-                    yield _sse(_evento_duplicada(d, referencias[d], evento, demo))
+                    yield _sse(_evento_duplicada(d, referencias[d], evento))
         yield _sse({"tipo": "fin", "segundos": round(time.perf_counter() - inicio, 1)})
     except Exception as e:  # se avisa al navegador en vez de cortar la conexión sin explicación
         LOG.exception("Fallo en el flujo de triaje")
@@ -599,7 +585,7 @@ def triaje(peticion: PeticionTriaje) -> StreamingResponse:
                 ref = {**ref, "alert_id": completar_alerta(ref)["alert_id"]}  # lo demás lo completa triar(), con avisos
         referencias.append(ref)
     return StreamingResponse(
-        _flujo(referencias, peticion.paralelo, peticion.demo),
+        _flujo(referencias, peticion.paralelo),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )

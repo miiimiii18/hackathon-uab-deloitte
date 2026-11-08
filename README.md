@@ -73,7 +73,7 @@ Lo contamos con detalle en **[`docs/limitaciones.md`](docs/limitaciones.md)**. L
 - Las etiquetas del conjunto de evaluación son nuestras: el acierto es una estimación sobre un conjunto pequeño.
 - La agrupación y la investigación solo trabajan con las alertas ya triadas; no buscan por su cuenta en todo el dataset.
 - No consultamos servicios de reputación externos y el contexto de los logs se limita a ±24 h.
-- Depende del servidor compartido del DCC (para eso está el **modo demo**).
+- Depende del servidor compartido del DCC: si se satura, el triaje en directo se ralentiza o falla.
 
 ## 🚀 Cómo ejecutarlo
 
@@ -92,7 +92,7 @@ copy .env.example .env                                                   # pon L
 .venv\Scripts\python -m uvicorn mock_soc_api:app --app-dir data/tarvia/06_herramientas --host 127.0.0.1 --port 8000
 # Terminal 2: la web → http://127.0.0.1:8080
 .venv\Scripts\python -m src.web
-# Terminal 3 (una vez por ordenador): resultados guardados para el modo demo
+# Terminal 3 (una vez por ordenador): deja la cola triada y el informe N3 generado
 .venv\Scripts\python -m scripts.preparar_demo --informe
 ```
 
@@ -115,7 +115,6 @@ Web propia (FastAPI + HTML/CSS/JS sin build ni recursos de terceros). Cómo est�
 - **Detalle** de cada alerta: qué ha consultado el sistema, en qué se basa, qué propone la IA, qué decide el código y qué falta por decidir a la persona.
 - **Cargar alertas**: pegar un JSON nuevo, subir un fichero o elegir del dataset (para las 10 alertas en directo).
 - **Informe de investigación** (N3) de lo escalado y **registro de contención** con quién aprobó cada acción.
-- **Modo demo**: reproduce los resultados guardados si falla la red o el servidor del modelo.
 
 ## 🗂️ Estructura
 
@@ -123,7 +122,7 @@ Web propia (FastAPI + HTML/CSS/JS sin build ni recursos de terceros). Cómo est�
 ├── src/            # backend: evidencia, LLM, política, ticket, triaje, agrupación, investigación, contención
 │   ├── esquemas/   # esquemas de salida de Deloitte (ticket e informe)
 │   └── web/        # API FastAPI y front estático
-├── scripts/        # evaluar.py (gold set) y preparar_demo.py (modo demo)
+├── scripts/        # evaluar.py (gold set) y preparar_demo.py (deja la cola triada)
 ├── evaluacion/     # casos etiquetados, alertas inventadas y resultados
 ├── tests/          # tests con pytest (los ejecuta el CI con ruff)
 ├── docs/           # plan de trabajo, arranque, web, limitaciones y pitch

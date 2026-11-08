@@ -2,7 +2,7 @@
 
 Recorrido de principio a fin para comprobar la web antes de la defensa. Dura unos 20–25 minutos. Cada paso dice qué hacer (→) y qué debería salir (✅). Comprobada el 8-nov con Playwright y Chrome.
 
-**La prueba ensucia el modo demo:** guarda decisiones humanas en las alertas, añade alertas a la cola y deja acciones en el registro de contención. El paso 14 lo deja todo limpio; no te lo saltes antes de la defensa.
+**La prueba ensucia los resultados guardados:** guarda decisiones humanas en las alertas, añade alertas a la cola y deja acciones en el registro de contención. El paso 14 lo deja todo limpio; no te lo saltes antes de la defensa.
 
 ## 0. Preparación
 1. → Arranca la API del SOC y la web como dice [`arrancar.md`](arrancar.md) y abre http://127.0.0.1:8080.
@@ -16,13 +16,12 @@ Recorrido de principio a fin para comprobar la web antes de la defensa. Dura uno
    ```
 
 ## 1. Cabecera y estado
-- [ ] ✅ No hay avisos rojos y se ven los chips «Registro de contención» y «Modo demo».
-- [ ] → Para la API del SOC (Ctrl+C) y recarga la página. ✅ Sale un aviso rojo con el comando de `uvicorn` y un botón «Usar modo demo». → Vuelve a arrancar la API y recarga. ✅ El aviso desaparece.
+- [ ] ✅ No hay avisos rojos, se ven los chips «API del SOC» y del modelo y el enlace «Registro de contención».
+- [ ] → Para la API del SOC (Ctrl+C) y recarga la página. ✅ Sale un aviso rojo con el comando de `uvicorn`. → Vuelve a arrancar la API y recarga. ✅ El aviso desaparece.
 
 ## 2. Cola de alertas
 - [ ] ✅ Aparecen las 10 alertas de la cola, con su severidad, veredicto y decisión si ya estaban triadas.
-- [ ] → Pulsa «Triar las N» con el Modo demo **desactivado**. ✅ Cada fila avanza por Evidencia → IA → Política → Persona, con contador de segundos. Tarda ~1 min (43 s medidos).
-- [ ] → Activa «Modo demo» y vuelve a triar. ✅ Termina en unos segundos (6 s medidos) con los resultados guardados.
+- [ ] → Pulsa «Triar las N». ✅ Cada fila avanza por Evidencia → IA → Política y acaba con su sello, con contador de segundos. Tarda ~1 min (43 s medidos).
 - [ ] → Filtros: prueba cada desplegable (regla, severidad, veredicto y estado). ✅ El contador «N de M a la vista» cambia. → «Quitar filtros». ✅ Vuelven todas.
 - [ ] → Pon un filtro, entra en una alerta y vuelve a la cola. ✅ El filtro se conserva.
 - [ ] ✅ La franja «Lo que no resuelve» aparece en la cola.
@@ -66,7 +65,7 @@ Recorrido de principio a fin para comprobar la web antes de la defensa. Dura uno
 - [ ] → «No estoy de acuerdo: corregir el veredicto» → «Registrar corrección» sin motivo ni nombre. ✅ Lo rechaza. → Con `false_positive`, `informational`, motivo y nombre. ✅ Queda anotado, la cola muestra «Persona: …» y **lo que calculó el código no cambia**.
 
 ## 10. Cargar alertas nuevas
-- [ ] **Completa:** «Pegar JSON» con el contenido de `evaluacion/alertas_inventadas/INV-01-fraude-iban-cfo.json`. ✅ Los cinco campos con ✓. → «Añadir y triar». ✅ Se tría en directo (con el Modo demo **desactivado**).
+- [ ] **Completa:** «Pegar JSON» con el contenido de `evaluacion/alertas_inventadas/INV-01-fraude-iban-cfo.json`. ✅ Los cinco campos con ✓. → «Añadir y triar». ✅ Se tría en directo.
 - [ ] **Pobre:** `{"rule_id": "UC-EDR-002", "entities": {"hosts": ["WS-BCN-1174"]}}`. ✅ `alert_id` en amarillo («se asigna ALR-MANUAL-…») y también `severity` y `created_at`. → Tríala. ✅ El detalle avisa de lo que se completó (ID, severidad y runbook del catálogo, sin hora).
 - [ ] **Inválida:** `{"severity": "high"}`. ✅ Rojo «no trae nada que investigar» y botones desactivados. `hola` → «Línea 1: no es JSON válido».
 - [ ] **Lista:** `[ {...}, {...} ]`. ✅ Valida cada una por separado.
@@ -79,11 +78,11 @@ Recorrido de principio a fin para comprobar la web antes de la defensa. Dura uno
 - [ ] → Chip «Registro de contención». ✅ Están las acciones del paso 6 con hora, acción, objetivo, ticket, quién aprobó (nombre), token y resultado. → «Actualizar».
 
 ## 12. Plan B
-- [ ] → Activa «Modo demo» y para **solo la API del SOC** (la web sigue). Recarga y tría las 10. ✅ Se reproducen igual. El registro de contención muestra «No se pudo leer el registro…» pasados unos segundos: es lo único que no funciona.
+- [ ] → Para **solo la API del SOC** (la web sigue) y recarga. ✅ Las alertas ya triadas se siguen abriendo (detalle, grupo, informe). El registro de contención muestra «No se pudo leer el registro…» pasados unos segundos.
 - [ ] → Vuelve a arrancar la API del SOC.
 
 ## 13. Persistencia
-- [ ] → Recarga (F5). ✅ La cola, el Modo demo y los filtros de la cola se mantienen (los filtros solo en esa pestaña: si la cierras, se pierden).
+- [ ] → Recarga (F5). ✅ La cola y los filtros de la cola se mantienen (los filtros solo en esa pestaña: si la cierras, se pierden).
 - [ ] → «Restablecer las 10». ✅ La cola vuelve a las 10 iniciales.
 
 ## 14. Limpieza (obligatoria antes de la defensa)
@@ -97,4 +96,4 @@ Vuelve a arrancar la web y después:
 ```powershell
 .venv\Scripts\python -m scripts.preparar_demo --informe
 ```
-Tarda ~1 min. Por último, en la web (en el navegador que vayas a usar en la demo) pulsa «Restablecer las 10» y comprueba el Modo demo. Debe quedar con 15 resultados, sin decisiones de prueba y con el registro vacío.
+Tarda ~1 min. Por último, en la web (en el navegador que vayas a usar en la demo) pulsa «Restablecer la bandeja inicial». Debe quedar con 15 resultados, sin decisiones de prueba y con el registro vacío.

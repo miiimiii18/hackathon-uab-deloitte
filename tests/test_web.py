@@ -164,16 +164,6 @@ def test_las_alertas_identicas_se_trian_una_vez_y_la_copia_se_guarda(cliente, mo
     assert "duplicada_de" not in cliente.get("/api/resultados/ORIG").json()
 
 
-def test_en_modo_demo_la_duplicada_reutiliza_el_resultado_sin_guardar(cliente, monkeypatch, tmp_path):
-    cliente.post("/api/triaje", json={"alertas": _identicas()[:1]})
-    monkeypatch.setattr(api.time, "sleep", lambda s: None)
-    monkeypatch.setattr(api, "triar", lambda *a, **k: pytest.fail("el modo demo no debe triar"))
-    evs = eventos(cliente.post("/api/triaje", json={"alertas": _identicas(), "demo": True}))
-    copia = next(e for e in evs if e["tipo"] == "resultado" and e["alert_id"] == "COPIA")
-    assert copia["resumen"]["duplicada_de"] == "ORIG" and "error" not in copia["resumen"]
-    assert not (tmp_path / "web" / "COPIA.json").exists()
-
-
 def test_las_distintas_no_se_marcan_como_duplicadas(cliente):
     evs = eventos(cliente.post("/api/triaje", json={"alertas": ["ALR-1", "ALR-2"]}))
     assert evs[0]["duplicadas"] == 0
@@ -182,16 +172,6 @@ def test_las_distintas_no_se_marcan_como_duplicadas(cliente):
 
 def test_no_se_aceptan_rutas_a_ficheros(cliente):
     assert cliente.post("/api/triaje", json={"alertas": ["../../secreto.json"]}).status_code == 422
-
-
-def test_modo_demo_reproduce_lo_guardado_sin_triar(cliente, monkeypatch):
-    cliente.post("/api/triaje", json={"alertas": ["ALR-1"]})
-    monkeypatch.setattr(api.time, "sleep", lambda s: None)
-    monkeypatch.setattr(api, "triar", lambda *a, **k: pytest.fail("el modo demo no debe triar"))
-    evs = eventos(cliente.post("/api/triaje", json={"alertas": ["ALR-1", "ALR-2"], "demo": True}))
-    resumenes = {e["alert_id"]: e["resumen"] for e in evs if e["tipo"] == "resultado"}
-    assert resumenes["ALR-1"]["decision"] == "escalar"
-    assert "No hay resultado guardado" in resumenes["ALR-2"]["error"]
 
 
 def test_un_fallo_en_una_alerta_no_para_el_lote(cliente, monkeypatch):

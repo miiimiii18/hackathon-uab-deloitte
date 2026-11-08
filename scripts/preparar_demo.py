@@ -1,7 +1,7 @@
-"""Prepara el plan B de la demo: tría por la web las alertas de la cola y deja los resultados guardados.
+"""Prepara la demo: tría por la web las alertas de la cola y deja los resultados guardados.
 
-Los resultados van a data/out/web/ (ignorada por git), que es lo que reproduce el «Modo demo»: por eso
-hay que ejecutar esto en cada ordenador antes de la defensa. Necesita la API del SOC, la web y la
+Los resultados van a data/out/web/ (ignorada por git) y la web los carga al arrancar: así la cola sale ya
+triada y con el informe N3 generado. Hay que ejecutarlo en cada ordenador antes de la defensa. Necesita la API del SOC, la web y la
 clave del LLM en marcha (ver docs/web.md). Desde la raíz del proyecto:
 
     python -m scripts.preparar_demo              # las 10 de la cola + 5 del incidente de phishing de SSO

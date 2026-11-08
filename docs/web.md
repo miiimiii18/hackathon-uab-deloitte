@@ -20,9 +20,9 @@ python -m src.web
 
 Variables opcionales: `WEB_PORT` (8080) y `WEB_ABRIR=0` para no abrir el navegador. El LLM se configura como siempre en `.env` (`LLM_API_KEY`, `LLM_MODEL=ornith`...). La cabecera de la web muestra si la API del SOC y la clave del LLM están disponibles.
 
-Solo se usa el LLM de la organización (la clave del equipo en `.env`); nada corre en local. Si `LLM_MODEL` apunta a un modelo que el servidor no tiene (p. ej. `qwen3:8b` de las pruebas con Ollama), la web usa `ornith` y avisa con un banner amarillo para que lo corrijáis en `.env`. Si falta la API del SOC o la clave, el banner rojo dice qué arrancar o qué poner, y ofrece el modo demo.
+Solo se usa el LLM de la organización (la clave del equipo en `.env`); nada corre en local. Si `LLM_MODEL` apunta a un modelo que el servidor no tiene (p. ej. `qwen3:8b` de las pruebas con Ollama), la web usa `ornith` y avisa con un banner amarillo para que lo corrijáis en `.env`. Si falta la API del SOC o la clave, el banner rojo dice qué arrancar o qué poner.
 
-No hay `npm`, ni build, ni fuentes ni recursos de terceros: todo es estático y funciona sin red (RGPD y plan B).
+No hay `npm`, ni build, ni fuentes ni recursos de terceros: todo es estático y no carga nada de fuera (RGPD).
 
 ## Pantallas
 
@@ -39,9 +39,9 @@ Diseño de «parte de triaje» (tema claro, solo fuentes del sistema, sin recurs
 - **Cola:** bandeja de entrada, marcador (triadas, escalar, revisión, cerrar, ataques agrupados) y una fila por alerta con la razón de la IA y su cita, la línea del código, la cuenta de la gravedad, un punto por consulta (rojo malicioso, hueco desconocido, verde limpio) y el sello.
 - **Detalle (expediente):** conclusión y «quién decide qué» arriba; a la izquierda, por qué (eventos citados, con los que **no** venían en la alerta en ocre), la cronología, el grafo de implicados, las dudas de la IA, el grupo, el informe N3 y la evidencia completa; a la derecha, qué ha consultado (cascada con tiempos reales), la matriz de gravedad y la contención que firma una persona.
 
-## Modo demo (plan B sin red)
+## Resultados guardados
 
-Cada triaje se guarda en `data/out/web/<alert_id>.json`. Con «Modo demo» activado, «Triar» reproduce los resultados guardados (también los de `data/out/demo/`) sin tocar la API del SOC ni el LLM. Antes de la defensa, triar las 10 una vez con red para dejarlas guardadas.
+Cada triaje se guarda en `data/out/web/<alert_id>.json` (también se leen los de `data/out/demo/`) y la web los carga al arrancar: lo ya triado se puede abrir sin volver a triar. `python -m scripts.preparar_demo --informe` deja la cola de las 10 triada y el informe N3 generado. «Triar» siempre tría de verdad (API del SOC + LLM): ya no hay modo demo que reproduzca resultados.
 
 ## API (`src/web/api.py`)
 

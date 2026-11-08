@@ -199,7 +199,7 @@ export function montarCola(raiz) {
     cifras.cerrar.textContent = cuenta("cerrar");
     cifras.grupos.textContent = new Set([...estado.grupos].filter(([id]) => estado.filas.has(id)).map(([, x]) => x.grupo_id)).size;
     titular.textContent = estado.triando ? `Triando ${lista.length} alertas…` : `${lista.length} alerta${lista.length === 1 ? "" : "s"} en la bandeja.`;
-    entradilla.textContent = [estado.demo ? "Modo demo." : "", visibles.length === lista.length ? "" : `A la vista: ${visibles.length} de ${lista.length}.`].filter(Boolean).join(" ");
+    entradilla.textContent = visibles.length === lista.length ? "" : `A la vista: ${visibles.length} de ${lista.length}.`;
     btnTriar.textContent = estado.triando ? "Triando…" : `Triar las ${lista.length}`;
     btnTriar.disabled = estado.triando || !lista.length;
   }
