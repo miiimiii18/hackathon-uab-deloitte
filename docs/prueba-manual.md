@@ -83,7 +83,7 @@ Recorrido de principio a fin para comprobar la web antes de la defensa. Dura uno
 
 ## 13. Persistencia
 - [ ] → Recarga (F5). ✅ La cola y los filtros de la cola se mantienen (los filtros solo en esa pestaña: si la cierras, se pierden).
-- [ ] → «Vaciar la bandeja». ✅ La bandeja queda vacía. → Carga un JSON con varias alertas. ✅ Solo están esas (sustituyen a las anteriores).
+- [ ] → «Vaciar». ✅ La bandeja queda vacía. → Carga un JSON con varias alertas. ✅ Solo están esas (sustituyen a las anteriores).
 
 ## 14. Limpieza (obligatoria antes de la defensa)
 Para la web (Ctrl+C) y, desde la carpeta del proyecto:
@@ -96,4 +96,4 @@ Vuelve a arrancar la web y después:
 ```powershell
 .venv\Scripts\python -m scripts.preparar_demo --informe
 ```
-Tarda ~1 min. Por último, en la web (en el navegador que vayas a usar en la demo) pulsa «Vaciar la bandeja». Debe quedar con 15 resultados, sin decisiones de prueba y con el registro vacío.
+Tarda ~1 min. Por último, en la web (en el navegador que vayas a usar en la demo) pulsa «Vaciar». Debe quedar con 15 resultados, sin decisiones de prueba y con el registro vacío.

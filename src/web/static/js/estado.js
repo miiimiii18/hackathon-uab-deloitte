@@ -3,8 +3,9 @@ import { aviso } from "./util.js";
 
 // Estado de la cola en el navegador. La decisión de cada alerta la toma el servidor; aquí solo
 // se guarda qué alertas hay y en qué etapa van.
-const CLAVE_COLA = "temipo.cola";
-const CLAVE_PEGADAS = "temipo.pegadas";
+// Claves nuevas desde que la bandeja solo tiene lo cargado: así se olvida la cola de ejemplo de antes.
+const CLAVE_COLA = "temipo.bandeja";
+const CLAVE_PEGADAS = "temipo.bandeja.pegadas";
 
 export const estado = {
   filas: new Map(), // id → { id, meta, etapa, resumen, error }
@@ -48,7 +49,8 @@ export async function cargarGrupos() {
 }
 
 export async function iniciar() {
-  localStorage.removeItem("temipo.demo"); // el modo demo ya no existe: se limpia lo que guardaba
+  // Lo que guardaban versiones anteriores (modo demo y la cola de ejemplo) ya no se usa: se limpia.
+  ["temipo.demo", "temipo.cola", "temipo.pegadas"].forEach((k) => localStorage.removeItem(k));
   estado.pegadas = leer(CLAVE_PEGADAS, {});
   // La bandeja empieza vacía: solo tiene las alertas que se cargan (se recuerdan al recargar la página).
   const ids = leer(CLAVE_COLA, []);
