@@ -85,6 +85,9 @@ def test_el_resumen_trae_las_razones_y_las_consultas():
     assert (s["severidad_regla"], s["criticidad"], s["ajuste"]) == ("low", "Crítica", -1)
     r["politica"] |= {"veredicto": "benign_true_positive", "autorizacion": "CHG-1: pentest"}
     assert api.resumen_resultado(r)["razon_codigo"] == "Autorización verificada: CHG-1: pentest"
+    # Si el primer hallazgo cita la propia alerta, se prefiere uno que cite un evento real.
+    r["llm"]["analisis"]["evidence"] = [{"event_id": "ALR-9", "finding": "La alerta dice X"}, {"event_id": "EDR-2", "finding": "Se ejecuta Y"}]
+    assert api.resumen_resultado(r)["razon_ia"] == {"texto": "Se ejecuta Y", "cita": "EDR-2"}
 
 
 def test_busca_en_el_dataset(cliente):

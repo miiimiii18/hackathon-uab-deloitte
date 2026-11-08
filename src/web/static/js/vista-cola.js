@@ -84,7 +84,7 @@ function actualizarFila(el, f, n) {
   if (listo) {
     if (res.razon_ia?.texto) {
       r.razon.className = "razon";
-      añadir(r.razon, [h("span", { class: "ia-marca" }, "✦ "), h("span", { class: "ia-voz" }, res.razon_ia.texto), " ", res.razon_ia.cita ? h("span", { class: "cita" }, res.razon_ia.cita) : null]);
+      añadir(r.razon, [h("span", { class: "ia-marca" }, "✦ "), h("span", { class: "ia-voz" }, res.razon_ia.texto), " ", res.razon_ia.cita && res.razon_ia.cita !== f.id ? h("span", { class: "cita" }, res.razon_ia.cita) : null]); // citar la propia alerta no aporta
     }
     if (res.razon_codigo) r.extra.append(h("div", { class: "razon-co", title: legible(res.razon_codigo) }, `{ } ${cortar(legible(res.razon_codigo), 170)}`));
     const corrige = res.veredicto_llm && res.veredicto_llm !== res.veredicto;

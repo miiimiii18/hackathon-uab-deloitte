@@ -154,7 +154,10 @@ def _razones(r: dict[str, Any]) -> dict[str, Any]:
     """Una línea de la IA (su primer hallazgo, con el evento que lo prueba) y una del código, para la cola."""
     p = r.get("politica") or {}
     hallazgos = ((r.get("llm") or {}).get("analisis") or {}).get("evidence") or []
-    ia = {"texto": hallazgos[0].get("finding"), "cita": hallazgos[0].get("event_id")} if hallazgos else None
+    # Mejor un hallazgo que cite un evento real que uno que cite la propia alerta.
+    propio = r.get("alert_id")
+    primero = next((x for x in hallazgos if x.get("event_id") and x.get("event_id") != propio), hallazgos[0] if hallazgos else None)
+    ia = {"texto": primero.get("finding"), "cita": primero.get("event_id")} if primero else None
     if p.get("autorizacion"):
         codigo = f"Autorización verificada: {p['autorizacion']}"
     elif p.get("veredicto_llm") and p.get("veredicto_llm") != p.get("veredicto") and p.get("avisos"):
