@@ -1,10 +1,12 @@
-import { h } from "./dom.js";
+import { añadir, h } from "./dom.js";
 import { abrirPanel } from "./panel.js";
 import { estado, restablecerCola, suscribir, triarFilas } from "./estado.js";
-import { DECISION, ETAPA, minutos, SEVERIDADES } from "./util.js";
+import { cortar, ETAPA, gravedad, legible, minutos, SELLO, SEVERIDADES, veredicto, VEREDICTO } from "./util.js";
 
-const VEREDICTOS = ["true_positive", "benign_true_positive", "false_positive", "needs_more_info"];
-const ESTADOS = [["escalar", "Escalar a N2"], ["revisar", "Revisar"], ["cerrar", "Cerrar"], ["pendiente", "Sin triar"], ["error", "Con error"]];
+// La cola como un «libro» de alertas: cada fila dice qué ha pasado, por qué (con su cita), qué
+// propone la IA, qué decide el código y el sello de la decisión. Lo calcula todo el servidor.
+
+const ESTADOS = [["escalar", "Escalar a N2"], ["revisar", "Revisión humana"], ["cerrar", "Cerrar"], ["pendiente", "Sin triar"], ["error", "Con error"]];
 // Fuera de la vista para que sigan al volver desde el detalle, y en sessionStorage para que sigan tras F5.
 // No en localStorage: un filtro olvidado ocultaría alertas en la siguiente demo.
 const CLAVE_FILTROS = "temipo.filtros";
@@ -24,85 +26,97 @@ function pasaFiltros(f) {
   return true;
 }
 
-const SEGMENTOS = {
-  pendiente: ["o", "o", "o", "o"],
-  evidencia: ["a", "o", "o", "o"],
-  ia: ["d", "a", "o", "o"],
-  politica: ["d", "d", "a", "o"],
-  error: ["x", "x", "x", "x"],
-};
+// Barra de etapas mientras se tría: evidencia → IA → política.
+const ETAPAS = { pendiente: ["", "", ""], evidencia: ["a", "", ""], ia: ["d", "a", ""], politica: ["d", "d", "a"], error: ["x", "x", "x"] };
 
-function segmentos(f) {
-  if (f.etapa !== "listo") return SEGMENTOS[f.etapa];
-  const r = f.resumen;
-  const espera = (r.decision === "escalar" || r.decision === "revisar") && !r.resuelta;
-  return ["d", "d", "d", espera ? "w" : "d"];
+// Un punto por consulta: rojo = malicioso, hueco = desconocido (no es limpio), verde = limpio, gris = el resto.
+function puntos(c) {
+  const total = Math.min(c?.total ?? 0, 60);
+  const m = c?.malicioso ?? 0, u = c?.desconocido ?? 0, l = c?.limpio ?? 0;
+  return h("div", { class: "puntos", "aria-hidden": "true" },
+    ...Array.from({ length: total }, (_, i) => h("i", { class: i < m ? "m" : i < m + u ? "u" : i < m + u + l ? "c" : "" })));
+}
+
+function ajuste(n) {
+  const v = Number(n) || 0;
+  return v > 0 ? ` +${v}` : v < 0 ? ` −${-v}` : "";
+}
+
+function cuentaGravedad(r) {
+  const final = h("span", { class: `sv ${r.severidad ?? "nada"}` }, gravedad(r.severidad));
+  if (["false_positive", "benign_true_positive"].includes(r.veredicto)) return [h("span", { class: "m" }, `${veredicto(r.veredicto).toLowerCase()} → `), final];
+  if (!r.severidad_regla) return [final];
+  return [h("span", { class: "m" }, `${gravedad(r.severidad_regla)} × ${String(r.criticidad ?? "?").toLowerCase()}${ajuste(r.ajuste)} → `), final];
 }
 
 function crearFila(id) {
   const r = {};
   const el = h("a", { class: "fila", href: `#/alerta/${encodeURIComponent(id)}`, role: "row" },
-    r.barra = h("span", { class: "barra", "aria-hidden": "true" }),
-    h("span", { class: "id", role: "cell" }, id),
-    h("span", { role: "cell" }, r.tit = h("span", { class: "tit" }), h("br"), r.sub = h("span", { class: "sub" })),
-    r.pp = h("span", { class: "pp", role: "cell" }, h("i"), h("i"), h("i"), h("i")),
-    r.ver = h("span", { role: "cell", style: { display: "flex", flexDirection: "column", gap: "3px" } }),
-    r.sev = h("span", { role: "cell" }),
-    r.dec = h("span", { role: "cell" }),
-    r.conf = h("span", { class: "m", role: "cell", style: { fontSize: "12.5px" } }),
-    r.seg = h("span", { class: "m", role: "cell", style: { fontSize: "12.5px", color: "var(--mu)" } }));
+    r.num = h("span", { class: "num", role: "cell" }),
+    h("div", { role: "cell", style: { minWidth: 0 } }, r.tit = h("div", { class: "tit" }), r.sub = h("div", { class: "sub" }), r.razon = h("div"), r.extra = h("div")),
+    r.cadena = h("div", { class: "cadena", role: "cell" }),
+    r.cons = h("div", { role: "cell" }),
+    r.sello = h("div", { class: "sello-c", role: "cell" }));
   el.refs = r;
   return el;
 }
 
-function actualizarFila(el, f) {
+function actualizarFila(el, f, n) {
   const r = el.refs;
   const res = f.resumen;
   const listo = f.etapa === "listo";
   const enCurso = ["evidencia", "ia", "politica"].includes(f.etapa);
 
-  r.barra.className = `barra ${listo ? res.severidad : enCurso ? "run" : f.etapa === "error" ? "fallo" : ""}`;
+  r.num.textContent = String(n).padStart(2, "0");
   r.tit.textContent = res?.titulo ?? f.meta?.rule_name ?? f.id;
-  r.sub.textContent = f.error ? "" : [f.meta?.rule_id, f.meta?.source_product].filter(Boolean).join(" · ");
-  if (f.error) {
-    r.sub.replaceChildren(h("span", { class: "err" }, f.error));
-  }
+  r.sub.replaceChildren(h("span", {}, [f.id, f.meta?.source_product, f.meta?.rule_id].filter(Boolean).join(" · ")));
   const g = estado.grupos.get(f.id);
-  if (g && listo) r.sub.append(" ", h("span", { class: "chip c-med", title: `Mismo ataque: ${g.alert_ids.join(", ")}` }, `Mismo ataque · ${g.alert_ids.length} alertas`));
-  if (res?.duplicada_de && listo) r.sub.append(" ", h("span", { class: "chip", title: "Misma regla, entidades y evidencia: no se vuelve a triar, se reutiliza el resultado" }, `Duplicada de ${res.duplicada_de}`));
-  [...r.pp.children].forEach((seg, i) => { seg.className = segmentos(f)[i]; });
+  if (g && listo) r.sub.append(h("span", { class: "chip c-med", title: `Mismo ataque: ${g.alert_ids.join(", ")}` }, `Mismo ataque · ${g.alert_ids.length} alertas`));
+  if (res?.duplicada_de && listo) r.sub.append(h("span", { class: "chip", title: "Misma regla, entidades y evidencia: no se vuelve a triar" }, `Duplicada de ${res.duplicada_de}`));
 
-  r.ver.replaceChildren();
-  r.sev.replaceChildren();
-  r.dec.replaceChildren();
-  r.conf.textContent = "";
-  r.seg.textContent = "";
+  r.razon.replaceChildren();
+  r.extra.replaceChildren();
+  r.cadena.replaceChildren();
+  r.cons.replaceChildren();
+  r.sello.replaceChildren();
+
+  if (f.error) r.razon.append(h("div", { class: "err" }, f.error));
   if (listo) {
-    r.ver.append(h("span", { class: "m", style: { fontSize: "12px" } }, res.veredicto ?? "—"));
-    if (res.veredicto_llm && res.veredicto_llm !== res.veredicto) r.ver.append(h("span", { class: "corregido", title: "El código corrigió a la IA" }, `IA: ${res.veredicto_llm}`));
-    r.sev.append(h("span", { class: `sv ${res.severidad ?? "nada"}` }, res.severidad ?? "—"));
-    r.dec.append(h("span", { class: `tg ${res.decision}` }, DECISION[res.decision] ?? "—"));
-    r.conf.textContent = res.confianza != null ? Number(res.confianza).toFixed(2) : "";
-    r.seg.textContent = res.segundos != null ? `${Math.round(res.segundos)} s` : "";
-    if (res.correccion) r.ver.append(h("span", { class: "m", style: { fontSize: "11px", color: "var(--lime)" }, title: `${res.correccion.por}: ${res.correccion.motivo}` }, `Persona: ${res.correccion.veredicto}`));
+    if (res.razon_ia?.texto) {
+      r.razon.className = "razon";
+      r.razon.append(h("span", { class: "ia-marca" }, "✦ "), h("span", { class: "ia-voz" }, res.razon_ia.texto), " ", res.razon_ia.cita ? h("span", { class: "cita" }, res.razon_ia.cita) : null);
+    }
+    if (res.razon_codigo) r.extra.append(h("div", { class: "razon-co", title: legible(res.razon_codigo) }, `{ } ${cortar(legible(res.razon_codigo), 170)}`));
+    const corrige = res.veredicto_llm && res.veredicto_llm !== res.veredicto;
+    añadir(r.cadena, [
+      h("div", { class: "p" }, h("span", { class: "cap" }, "✦ IA"),
+        h("span", {}, h("span", { class: "ia-voz", style: { fontSize: "14px" } }, veredicto(res.veredicto_llm ?? res.veredicto)), " ",
+          h("span", { class: "m", style: { color: "var(--mu)" } }, res.confianza != null ? Number(res.confianza).toFixed(2).replace(".", ",") : ""))),
+      h("div", { class: "p" }, h("span", { class: "cap" }, "{ } Código"),
+        h("span", {}, corrige ? h("b", { style: { color: "var(--med)" } }, `corrige: ${veredicto(res.veredicto)} · `) : null, ...cuentaGravedad(res))),
+      res.correccion ? h("div", { class: "p" }, h("span", { class: "cap", style: { color: "var(--lime)" } }, "✍ Persona"),
+        h("span", { style: { color: "var(--lime)" }, title: `${res.correccion.por}: ${res.correccion.motivo}` }, `corrige: ${veredicto(res.correccion.veredicto)}`)) : null]);
+    r.cons.append(h("div", { class: "cap" }, `${res.consultas?.total ?? "?"} consultas`), puntos(res.consultas),
+      res.segundos != null ? h("div", { class: "m", style: { fontSize: "11px", color: "var(--mu)", marginTop: "4px" } }, `${Math.round(res.segundos)} s`) : null);
+    r.sello.append(h("span", { class: `sello ${res.decision}` }, SELLO[res.decision] ?? res.decision));
   } else if (enCurso) {
-    r.ver.append(h("span", { class: "m", style: { fontSize: "12px", color: "var(--mu)" } }, `${ETAPA[f.etapa].toLowerCase()}…`));
-    r.sev.append(h("span", { class: "skel", style: { width: "70px" } }));
-    r.dec.append(h("span", { class: "tg run" }, ETAPA[f.etapa]));
-    r.conf.append(h("span", { class: "skel", style: { width: "30px" } }));
+    r.razon.className = "razon";
+    r.razon.append(h("span", { class: "ia-voz", style: { color: "var(--mu)" } }, `${ETAPA[f.etapa]}…`));
+    r.cadena.append(h("span", { class: "skel", style: { width: "160px" } }), h("span", { class: "skel", style: { width: "120px" } }));
+    r.cons.append(h("div", { class: "cap" }, ETAPA[f.etapa]), h("div", { class: "etapas" }, ...ETAPAS[f.etapa].map((c) => h("i", { class: c }))));
+    r.sello.append(h("span", { class: "sello run" }, "Triando"));
   } else if (f.etapa === "error") {
-    r.dec.append(h("span", { class: "tg escalar" }, "Error"));
+    r.sello.append(h("span", { class: "sello error" }, "Error"));
   } else {
-    r.dec.append(h("span", { class: "tg" }, "En cola"));
+    r.sello.append(h("span", { class: "sello cola" }, "En la bandeja"));
   }
 }
 
 export function montarCola(raiz) {
   const filas = new Map();
   const cifras = {};
-  const cifra = (clave, rotulo, color) =>
-    h("div", { class: "cifra" }, cifras[clave] = h("b", { style: color ? { color } : {} }, "0"), h("span", {}, rotulo));
-  let subtitulo, btnTriar, cuerpo;
+  const cifra = (clave, rotulo, color) => h("div", {}, h("span", { class: "cap" }, rotulo), cifras[clave] = h("b", { style: color ? { color } : {} }, "0"));
+  let titular, entradilla, btnTriar, cuerpo, resumenTiempo;
   const selectores = {};
 
   function selector(clave, rotulo, opciones) {
@@ -123,46 +137,44 @@ export function montarCola(raiz) {
   }
 
   raiz.replaceChildren(
-    h("section", { class: "cabecera entra" },
-      h("div", {}, h("h1", { class: "d" }, "Cola de alertas"), subtitulo = h("p")),
-      h("div", { class: "cifras" },
-        cifra("escalar", "escaladas", "#ff8f8f"), cifra("revisar", "a revisar", "var(--med)"),
-        cifra("cerrar", "cerradas"), cifra("tiempo", "tiempo"),
+    h("section", { class: "bandeja entra" },
+      h("div", {}, h("div", { class: "cap" }, "Bandeja de entrada"), titular = h("h1"), entradilla = h("p")),
+      h("div", { class: "drop" },
+        h("div", { class: "pila", "aria-hidden": "true" }, h("b"), h("b"), h("b"), h("b")),
+        h("div", { style: { flex: "1 1 160px" } }, h("b", { style: { fontWeight: 600 } }, "Alertas nuevas"),
+          h("div", { class: "m", style: { fontSize: "12px", color: "var(--mu)" } }, "JSON o JSONL")),
         h("button", { class: "btn", type: "button", onClick: () => abrirPanel() }, "Cargar alertas"),
         btnTriar = h("button", { class: "btn go", type: "button" }))),
-    h("section", { class: "filtros entra", "aria-label": "Filtros de la cola" },
+    h("section", { class: "marcador entra", "aria-label": "Resumen" },
+      h("div", {}, h("span", { class: "cap" }, "Triadas"), h("b", {}, cifras.listas = h("span", {}, "0"), resumenTiempo = h("small"))),
+      cifra("escalar", "Escalar a N2", "var(--crit)"), cifra("revisar", "Revisión humana", "var(--med)"),
+      cifra("cerrar", "Cerrar", "var(--ok)"), cifra("grupos", "Ataques agrupados")),
+    h("div", { class: "sec" }, h("h2", {}, "Las alertas, una por una"), h("span", { class: "nivel" }, "N1"), h("span", { class: "nivel" }, "N2"),
+      h("span", { class: "nota-d leyenda-p" },
+        h("i", { style: { background: "var(--crit)" } }), "maliciosa", h("i", { style: { boxShadow: "inset 0 0 0 1.3px var(--med)" } }), "desconocida",
+        h("i", { style: { background: "var(--ok)" } }), "limpia")),
+    h("section", { class: "filtros", "aria-label": "Filtros" },
       selector("regla", "Regla", []),
-      selector("severidad", "Severidad", SEVERIDADES.slice().reverse().map((x) => [x, x])),
-      selector("veredicto", "Veredicto", VEREDICTOS.map((x) => [x, x])),
-      selector("estado", "Estado", ESTADOS),
+      selector("severidad", "Gravedad", SEVERIDADES.slice().reverse().map((x) => [x, gravedad(x)])),
+      selector("veredicto", "Veredicto", Object.entries(VEREDICTO)),
+      selector("estado", "Decisión", ESTADOS),
       h("button", { class: "btn sm", type: "button", onClick: () => { Object.keys(filtros).forEach((k) => { filtros[k] = ""; selectores[k].value = ""; }); guardarFiltros(); pintar(); } }, "Quitar filtros")),
-    h("section", { class: "card scroll entra", role: "table", "aria-label": "Cola de alertas", style: { animationDelay: ".1s" } },
-      h("div", { class: "fila hd", role: "row" },
-        h("span"), h("span", { role: "columnheader" }, "Alerta"), h("span", { role: "columnheader" }, "Qué ha saltado"),
-        h("span", { class: "pph", role: "columnheader" },
-          h("span", { style: { color: "var(--co)" } }, "Evid."), h("span", { style: { color: "var(--ia)" } }, "IA"),
-          h("span", { style: { color: "var(--co)" } }, "Polít."), h("span", { style: { color: "var(--lime)" } }, "Pers.")),
-        h("span", { role: "columnheader" }, "Veredicto"), h("span", { role: "columnheader" }, "Severidad"),
-        h("span", { role: "columnheader" }, "Decisión"), h("span", { role: "columnheader" }, "Conf."), h("span", { role: "columnheader" }, "Seg.")),
-      cuerpo = h("div")),
+    cuerpo = h("section", { class: "libro", role: "table", "aria-label": "Alertas" }),
+    h("div", { class: "sec" }, h("h2", {}, "Lo que este parte no garantiza")),
     h("section", { class: "limites", "aria-label": "Límites" },
-      h("span", { class: "chip", style: { color: "var(--tx)" } }, "Lo que no resuelve"),
-      h("span", {}, "Acierto del 80–86 % en 42 casos etiquetados por nosotros"),
-      h("span", {}, "Agrupa solo las alertas triadas de la cola, no busca otras en el dataset"),
-      h("span", {}, "Desconocido no es limpio: baja la confianza"),
-      h("span", {}, "Depende del servidor compartido del DCC"),
-      h("button", { class: "btn sm", type: "button", style: { marginLeft: "auto" }, onClick: () => restablecerCola() }, "Restablecer las 10")));
+      h("div", {}, h("b", {}, "80–86 %"), h("h3", {}, "de veredictos acertados")),
+      h("div", {}, h("b", {}, "2–6"), h("h3", {}, "casos cambian entre repeticiones")),
+      h("div", {}, h("b", {}, "○"), h("h3", {}, "desconocido no es limpio")),
+      h("div", {}, h("b", {}, "±24 h"), h("h3", {}, "de contexto por alerta"))),
+    h("div", { style: { display: "flex", justifyContent: "flex-end", paddingTop: "10px" } },
+      h("button", { class: "btn sm", type: "button", onClick: () => restablecerCola() }, "Restablecer la bandeja inicial")));
 
   btnTriar.addEventListener("click", () => triarFilas([...estado.filas.keys()], estado.servidor?.paralelo ?? 5));
 
   function pintar() {
     const lista = [...estado.filas.values()];
-    for (const f of lista) {
-      if (!filas.has(f.id)) filas.set(f.id, crearFila(f.id));
-    }
-    for (const [id, el] of filas) {
-      if (!estado.filas.has(id)) { el.remove(); filas.delete(id); }
-    }
+    for (const f of lista) if (!filas.has(f.id)) filas.set(f.id, crearFila(f.id));
+    for (const [id, el] of filas) if (!estado.filas.has(id)) { el.remove(); filas.delete(id); }
     opcionesDeRegla(lista);
     const visibles = lista.filter(pasaFiltros);
     for (const f of lista) if (!visibles.includes(f)) filas.get(f.id).remove();
@@ -172,20 +184,22 @@ export function montarCola(raiz) {
     const orden = visibles.map((f, i) => [f, i]).sort((a, b) => peso(a[0]) - peso(b[0]) || a[1] - b[1]).map(([f]) => f);
     orden.forEach((f, i) => {
       const el = filas.get(f.id);
-      actualizarFila(el, f);
+      actualizarFila(el, f, i + 1);
       if (cuerpo.children[i] !== el) cuerpo.insertBefore(el, cuerpo.children[i] ?? null);
     });
-    if (!lista.length) cuerpo.replaceChildren(h("div", { class: "vacio" }, "No hay alertas en la cola. Pulsa «Cargar alertas»."));
+    if (!lista.length) cuerpo.replaceChildren(h("div", { class: "vacio" }, "La bandeja está vacía. Pulsa «Cargar alertas»."));
     else if (!visibles.length) cuerpo.replaceChildren(h("div", { class: "vacio" }, "Ninguna alerta cumple los filtros."));
 
     const listas = lista.filter((f) => f.etapa === "listo");
     const cuenta = (d) => listas.filter((f) => f.resumen.decision === d).length;
+    cifras.listas.textContent = `${listas.length}`;
+    resumenTiempo.textContent = estado.triando || estado.segundos ? ` en ${minutos(estado.segundos)}` : ` de ${lista.length}`;
     cifras.escalar.textContent = cuenta("escalar");
     cifras.revisar.textContent = cuenta("revisar");
     cifras.cerrar.textContent = cuenta("cerrar");
-    cifras.tiempo.textContent = estado.triando || estado.segundos ? minutos(estado.segundos) : "—";
-    const nGrupos = new Set([...estado.grupos].filter(([id]) => estado.filas.has(id)).map(([, x]) => x.grupo_id)).size;
-    subtitulo.textContent = `${visibles.length === lista.length ? "" : `${visibles.length} de ${lista.length} a la vista · `}${listas.length} de ${lista.length} triadas · ${estado.servidor?.paralelo ?? 5} a la vez${nGrupos ? ` · ${nGrupos} ataque${nGrupos === 1 ? "" : "s"} agrupado${nGrupos === 1 ? "" : "s"}` : ""}${estado.demo ? " · modo demo" : ""}`;
+    cifras.grupos.textContent = new Set([...estado.grupos].filter(([id]) => estado.filas.has(id)).map(([, x]) => x.grupo_id)).size;
+    titular.textContent = estado.triando ? `Triando ${lista.length} alertas…` : `${lista.length} alerta${lista.length === 1 ? "" : "s"} en la bandeja.`;
+    entradilla.textContent = [estado.demo ? "Modo demo." : "", visibles.length === lista.length ? "" : `A la vista: ${visibles.length} de ${lista.length}.`].filter(Boolean).join(" ");
     btnTriar.textContent = estado.triando ? "Triando…" : `Triar las ${lista.length}`;
     btnTriar.disabled = estado.triando || !lista.length;
   }

@@ -37,7 +37,7 @@ from src.agrupar import VEREDICTOS_RELEVANTES, agrupar_resultados, posiciones_du
 from src.contencion import ErrorContencion, ejecutar_accion, registrar_en_ticket
 from src.evidencia import completar_alerta, motivo_de_rechazo
 from src.investigacion import id_incidente, investigar
-from src.policy import SEVERIDADES
+from src.policy import CRITICIDADES, MATRIZ, SEVERIDADES
 from src.soc_client import SOC_API_URL, ErrorSOC, SocClient
 from src.triaje import MAX_PARALELO, PARALELO, cargar_alerta, triar
 
@@ -150,6 +150,29 @@ def _obtener(alert_id: str) -> dict[str, Any]:
     return r
 
 
+def _razones(r: dict[str, Any]) -> dict[str, Any]:
+    """Una línea de la IA (su primer hallazgo, con el evento que lo prueba) y una del código, para la cola."""
+    p = r.get("politica") or {}
+    hallazgos = ((r.get("llm") or {}).get("analisis") or {}).get("evidence") or []
+    ia = {"texto": hallazgos[0].get("finding"), "cita": hallazgos[0].get("event_id")} if hallazgos else None
+    if p.get("autorizacion"):
+        codigo = f"Autorización verificada: {p['autorizacion']}"
+    elif p.get("veredicto_llm") and p.get("veredicto_llm") != p.get("veredicto") and p.get("avisos"):
+        codigo = p["avisos"][0]
+    elif p.get("motivos_escalado"):
+        codigo = "Escala porque: " + " · ".join(p["motivos_escalado"])
+    else:
+        codigo = None
+    return {"razon_ia": ia, "razon_codigo": codigo}
+
+
+def _consultas(r: dict[str, Any]) -> dict[str, int]:
+    """Cuántas consultas hizo el triaje y qué dijo la inteligencia (desconocido no cuenta como limpio)."""
+    estados = [i.get("estado") for i in (r.get("evidencia") or {}).get("inteligencia") or []]
+    return {"total": len(r.get("traza") or []), "malicioso": estados.count("malicious"),
+            "desconocido": estados.count("unknown") + estados.count("suspicious"), "limpio": estados.count("clean")}
+
+
 def resumen_resultado(r: dict[str, Any]) -> dict[str, Any]:
     """Lo mínimo que necesita la cola; el detalle completo se pide aparte."""
     base = {"alert_id": r.get("alert_id"), "meta": r.get("meta") or _indice().get(r.get("alert_id", "")),
@@ -159,6 +182,11 @@ def resumen_resultado(r: dict[str, Any]) -> dict[str, Any]:
     t, p = r.get("ticket") or {}, r.get("politica") or {}
     humano = r.get("humano") or []
     return {
+        **_razones(r),
+        "consultas": _consultas(r),
+        "severidad_regla": p.get("severidad_regla"),
+        "criticidad": p.get("criticidad"),
+        "ajuste": p.get("ajuste"),
         **base,
         "titulo": t.get("title"),
         "veredicto": p.get("veredicto"),
@@ -236,6 +264,8 @@ def estado() -> dict[str, Any]:
         "max_paralelo": MAX_PARALELO,
         "guardados": len(_resultados),
         "dataset": bool(_indice()),
+        # La matriz de severidad de la política, para dibujarla tal cual (la web no tiene copia propia).
+        "matriz": {"criticidades": CRITICIDADES, "filas": MATRIZ},
     }
 
 
@@ -644,12 +674,16 @@ def decidir(alert_id: str, peticion: PeticionDecision) -> dict[str, Any]:
 
 class Estaticos(StaticFiles):
     """En Windows el registro del sistema a veces da text/plain a los .js y el navegador se niega
-    a cargarlos como módulos: se fuerza el tipo correcto."""
+    a cargarlos como módulos: se fuerza el tipo correcto.
+
+    `no-cache`: el navegador puede guardar los ficheros, pero pregunta antes de usarlos (con el ETag
+    responde 304 si no han cambiado). Sin esto, tras un `git pull` podía mezclar JS viejo con CSS nuevo."""
 
     async def get_response(self, path: str, scope):
         respuesta = await super().get_response(path, scope)
         if path.endswith(".js"):
             respuesta.headers["content-type"] = "text/javascript; charset=utf-8"
+        respuesta.headers["cache-control"] = "no-cache"
         return respuesta
 
 

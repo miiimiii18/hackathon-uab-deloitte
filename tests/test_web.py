@@ -65,6 +65,26 @@ def test_se_sirve_el_front_y_los_js_como_modulos(cliente):
     assert "TEMIPO" in cliente.get("/").text
     r = cliente.get("/js/main.js")
     assert r.status_code == 200 and r.headers["content-type"].startswith("text/javascript")
+    assert r.headers["cache-control"] == "no-cache"  # tras actualizar el código no se mezclan JS viejos y CSS nuevo
+
+
+def test_el_resumen_trae_las_razones_y_las_consultas():
+    r = {
+        "alert_id": "ALR-9",
+        "traza": [{}, {}, {}],
+        "evidencia": {"inteligencia": [{"estado": "malicious"}, {"estado": "unknown"}, {"estado": "clean"}]},
+        "llm": {"analisis": {"evidence": [{"event_id": "EDR-1", "finding": "Ejecuta una DLL"}]}},
+        "politica": {"veredicto": "needs_more_info", "veredicto_llm": "benign_true_positive",
+                     "avisos": ["La autorización no encaja"], "severidad_regla": "low", "criticidad": "Crítica", "ajuste": -1},
+        "ticket": {},
+    }
+    s = api.resumen_resultado(r)
+    assert s["razon_ia"] == {"texto": "Ejecuta una DLL", "cita": "EDR-1"}
+    assert s["razon_codigo"] == "La autorización no encaja"  # el código corrige a la IA: se dice por qué
+    assert s["consultas"] == {"total": 3, "malicioso": 1, "desconocido": 1, "limpio": 1}
+    assert (s["severidad_regla"], s["criticidad"], s["ajuste"]) == ("low", "Crítica", -1)
+    r["politica"] |= {"veredicto": "benign_true_positive", "autorizacion": "CHG-1: pentest"}
+    assert api.resumen_resultado(r)["razon_codigo"] == "Autorización verificada: CHG-1: pentest"
 
 
 def test_busca_en_el_dataset(cliente):
