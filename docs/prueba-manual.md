@@ -50,7 +50,7 @@ Recorrido de principio a fin para comprobar la web antes de la defensa. Dura uno
 - [ ] → «Ticket JSON». ✅ Descarga el ticket.
 
 ## 7. Agrupación e informe N3 (phishing de SSO)
-- [ ] → «Cargar alertas» → pestaña «Subir archivos» → «Elegir archivos» → `data/sso5.jsonl` → «Añadir y triar». ✅ Las 5 llevan «Mismo ataque · 5 alertas».
+- [ ] → «Cargar alertas» → pestaña «Subir archivos» → «Elegir archivos» → `data/sso5.jsonl` → «Cargar y triar». ✅ Las 5 llevan «Mismo ataque · 5 alertas».
   *(También vale la pestaña «Del dataset»: con texto busca en las 11.061 alertas; sin texto lista la muestra de 150.)*
 - [ ] → Entra en una. ✅ Panel «Mismo ataque» con las 5 alertas enlazadas (pulsa una) y «Ticket único JSON».
 - [ ] ✅ Panel «Informe de investigación · nivel 3». Si no existe, «Generar informe de investigación» (~15 s).
@@ -65,14 +65,14 @@ Recorrido de principio a fin para comprobar la web antes de la defensa. Dura uno
 - [ ] → «No estoy de acuerdo: corregir el veredicto» → «Registrar corrección» sin motivo ni nombre. ✅ Lo rechaza. → Con `false_positive`, `informational`, motivo y nombre. ✅ Queda anotado, la cola muestra «Persona: …» y **lo que calculó el código no cambia**.
 
 ## 10. Cargar alertas nuevas
-- [ ] **Completa:** «Pegar JSON» con el contenido de `evaluacion/alertas_inventadas/INV-01-fraude-iban-cfo.json`. ✅ Los cinco campos con ✓. → «Añadir y triar». ✅ Se tría en directo.
+- [ ] **Completa:** «Pegar JSON» con el contenido de `evaluacion/alertas_inventadas/INV-01-fraude-iban-cfo.json`. ✅ Los cinco campos con ✓. → «Cargar y triar». ✅ Se tría en directo.
 - [ ] **Pobre:** `{"rule_id": "UC-EDR-002", "entities": {"hosts": ["WS-BCN-1174"]}}`. ✅ `alert_id` en amarillo («se asigna ALR-MANUAL-…») y también `severity` y `created_at`. → Tríala. ✅ El detalle avisa de lo que se completó (ID, severidad y runbook del catálogo, sin hora).
 - [ ] **Inválida:** `{"severity": "high"}`. ✅ Rojo «no trae nada que investigar» y botones desactivados. `hola` → «Línea 1: no es JSON válido».
 - [ ] **Lista:** `[ {...}, {...} ]`. ✅ Valida cada una por separado.
-- [ ] **Subir fichero:** «Subir archivos» → `data/prueba.jsonl`. ✅ 4 alertas válidas. → «Añadir y triar».
+- [ ] **Subir fichero:** «Subir archivos» → `data/prueba.jsonl`. ✅ 4 alertas válidas. → «Cargar y triar».
   - ✅ **Deduplicación:** `ALR-20261005-000021` lleva «Duplicada de ALR-20261005-000211» y el mismo resultado, sin otra llamada al LLM.
   - ✅ **Relación entre incidentes:** entra en `ALR-20261011-011883` (túnel DNS, escalado) y genera el informe. «Relación con otros incidentes» lista `ALR-20261011-011877 (en revisión, sin escalar)` con los eventos `EDR-0123433` y `FW-0026536`.
-- [ ] → «Solo añadir a la cola» con cualquier alerta. ✅ Entra sin triar («En cola»). → Entra en ella. ✅ Sale «Triar esta alerta».
+- [ ] → «Cargar en la bandeja» con cualquier alerta. ✅ Entra sin triar («En cola»). → Entra en ella. ✅ Sale «Triar esta alerta».
 
 ## 11. Registro de contención
 - [ ] → Chip «Registro de contención». ✅ Están las acciones del paso 6 con hora, acción, objetivo, ticket, quién aprobó (nombre), token y resultado. → «Actualizar».
@@ -83,7 +83,7 @@ Recorrido de principio a fin para comprobar la web antes de la defensa. Dura uno
 
 ## 13. Persistencia
 - [ ] → Recarga (F5). ✅ La cola y los filtros de la cola se mantienen (los filtros solo en esa pestaña: si la cierras, se pierden).
-- [ ] → «Restablecer las 10». ✅ La cola vuelve a las 10 iniciales.
+- [ ] → «Vaciar la bandeja». ✅ La bandeja queda vacía. → Carga un JSON con varias alertas. ✅ Solo están esas (sustituyen a las anteriores).
 
 ## 14. Limpieza (obligatoria antes de la defensa)
 Para la web (Ctrl+C) y, desde la carpeta del proyecto:
@@ -96,4 +96,4 @@ Vuelve a arrancar la web y después:
 ```powershell
 .venv\Scripts\python -m scripts.preparar_demo --informe
 ```
-Tarda ~1 min. Por último, en la web (en el navegador que vayas a usar en la demo) pulsa «Restablecer la bandeja inicial». Debe quedar con 15 resultados, sin decisiones de prueba y con el registro vacío.
+Tarda ~1 min. Por último, en la web (en el navegador que vayas a usar en la demo) pulsa «Vaciar la bandeja». Debe quedar con 15 resultados, sin decisiones de prueba y con el registro vacío.
