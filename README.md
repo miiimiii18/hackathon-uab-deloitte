@@ -9,8 +9,8 @@ Estudiantes del grado de Inteligencia Artificial de la UAB. No hay áreas fijas:
 | Nombre | GitHub |
 |--------|--------|
 | Miriam Morales | [@miiimiii18](https://github.com/miiimiii18) |
-| Pol | [@polore4](https://github.com/polore4) |
-<!-- Añadid aquí al resto del equipo -->
+| Pol Orellana | [@polore4](https://github.com/polore4) |
+| Teia Torrent | — |
 
 ## 🎯 El reto
 
