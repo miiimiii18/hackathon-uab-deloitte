@@ -5,8 +5,11 @@ import { DECISION, ETAPA, minutos, SEVERIDADES } from "./util.js";
 
 const VEREDICTOS = ["true_positive", "benign_true_positive", "false_positive", "needs_more_info"];
 const ESTADOS = [["escalar", "Escalar a N2"], ["revisar", "Revisar"], ["cerrar", "Cerrar"], ["pendiente", "Sin triar"], ["error", "Con error"]];
-// Se guardan fuera de la vista para que sigan al volver desde el detalle.
-const filtros = { regla: "", severidad: "", veredicto: "", estado: "" };
+// Fuera de la vista para que sigan al volver desde el detalle, y en sessionStorage para que sigan tras F5.
+// No en localStorage: un filtro olvidado ocultaría alertas en la siguiente demo.
+const CLAVE_FILTROS = "temipo.filtros";
+const filtros = { regla: "", severidad: "", veredicto: "", estado: "", ...JSON.parse(sessionStorage.getItem(CLAVE_FILTROS) ?? "{}") };
+const guardarFiltros = () => sessionStorage.setItem(CLAVE_FILTROS, JSON.stringify(filtros));
 
 function pasaFiltros(f) {
   const listo = f.etapa === "listo";
@@ -103,7 +106,7 @@ export function montarCola(raiz) {
   const selectores = {};
 
   function selector(clave, rotulo, opciones) {
-    const caja = selectores[clave] = h("select", { "aria-label": rotulo, onChange: () => { filtros[clave] = caja.value; pintar(); } },
+    const caja = selectores[clave] = h("select", { "aria-label": rotulo, onChange: () => { filtros[clave] = caja.value; guardarFiltros(); pintar(); } },
       h("option", { value: "" }, `${rotulo}: todas`), ...opciones.map(([valor, texto]) => h("option", { value: valor }, texto)));
     caja.value = filtros[clave];
     return caja;
@@ -116,6 +119,7 @@ export function montarCola(raiz) {
     selectores.regla.replaceChildren(h("option", { value: "" }, "Regla: todas"), ...reglas.map((x) => h("option", { value: x }, x)));
     selectores.regla.value = reglas.includes(filtros.regla) ? filtros.regla : "";
     filtros.regla = selectores.regla.value;
+    guardarFiltros();
   }
 
   raiz.replaceChildren(
@@ -131,7 +135,7 @@ export function montarCola(raiz) {
       selector("severidad", "Severidad", SEVERIDADES.slice().reverse().map((x) => [x, x])),
       selector("veredicto", "Veredicto", VEREDICTOS.map((x) => [x, x])),
       selector("estado", "Estado", ESTADOS),
-      h("button", { class: "btn sm", type: "button", onClick: () => { Object.keys(filtros).forEach((k) => { filtros[k] = ""; selectores[k].value = ""; }); pintar(); } }, "Quitar filtros")),
+      h("button", { class: "btn sm", type: "button", onClick: () => { Object.keys(filtros).forEach((k) => { filtros[k] = ""; selectores[k].value = ""; }); guardarFiltros(); pintar(); } }, "Quitar filtros")),
     h("section", { class: "card scroll entra", role: "table", "aria-label": "Cola de alertas", style: { animationDelay: ".1s" } },
       h("div", { class: "fila hd", role: "row" },
         h("span"), h("span", { role: "columnheader" }, "Alerta"), h("span", { role: "columnheader" }, "Qué ha saltado"),
@@ -180,7 +184,7 @@ export function montarCola(raiz) {
     cifras.revisar.textContent = cuenta("revisar");
     cifras.cerrar.textContent = cuenta("cerrar");
     cifras.tiempo.textContent = estado.triando || estado.segundos ? minutos(estado.segundos) : "—";
-    const nGrupos = new Set([...estado.grupos.values()].map((x) => x.grupo_id)).size;
+    const nGrupos = new Set([...estado.grupos].filter(([id]) => estado.filas.has(id)).map(([, x]) => x.grupo_id)).size;
     subtitulo.textContent = `${visibles.length === lista.length ? "" : `${visibles.length} de ${lista.length} a la vista · `}${listas.length} de ${lista.length} triadas · ${estado.servidor?.paralelo ?? 5} a la vez${nGrupos ? ` · ${nGrupos} ataque${nGrupos === 1 ? "" : "s"} agrupado${nGrupos === 1 ? "" : "s"}` : ""}${estado.demo ? " · modo demo" : ""}`;
     btnTriar.textContent = estado.triando ? "Triando…" : `Triar las ${lista.length}`;
     btnTriar.disabled = estado.triando || !lista.length;

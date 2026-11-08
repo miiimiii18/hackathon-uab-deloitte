@@ -28,10 +28,10 @@ No hay `npm`, ni build, ni fuentes ni recursos de terceros: todo es estático y 
 
 | Pantalla | Qué hace |
 |---|---|
-| **Cola** (`#/`) | Las 10 alertas de la guía (`COLA_INICIAL` en `src/web/api.py`). «Triar las N» las tría en paralelo y cada fila avanza por Evidencia → IA → Política → Persona según el servidor avisa. Filtros por regla, severidad, veredicto y estado. Las alertas triadas que forman un mismo ataque llevan la etiqueta «Mismo ataque · N alertas». |
+| **Cola** (`#/`) | Las 10 alertas de la guía (`COLA_INICIAL` en `src/web/api.py`). «Triar las N» las tría en paralelo y cada fila avanza por Evidencia → IA → Política → Persona según el servidor avisa. Filtros por regla, severidad, veredicto y estado (se recuerdan al recargar, solo en esa pestaña). Las alertas triadas que forman un mismo ataque llevan la etiqueta «Mismo ataque · N alertas». |
 | **Detalle** (`#/alerta/ID`) | Qué ha consultado (`traza`), en qué se basa (`evidencia`), qué propone la IA (`llm.analisis`), qué decide la política (`politica`) y la decisión de la persona (acciones del ticket). |
 | **Informe de investigación** (panel del detalle) | Solo en lo escalado. «Generar informe» pide al servidor el informe del nivel 3 (línea de tiempo con eventos reales, alcance, causa raíz, contención propuesta, a quién avisar...) y lo guarda en `data/out/web/informes/`. |
-| **Registro** (`#/registro`) | Acciones ejecutadas en la API simulada (`containment_log`): cuándo, acción, objetivo, ticket, token de aprobación y resultado. |
+| **Registro** (`#/registro`) | Acciones ejecutadas en la API simulada (`containment_log`): cuándo, acción, objetivo, ticket, quién aprobó, token de aprobación y resultado. |
 | **Cargar alertas** (panel lateral) | Pegar JSON (uno, lista o JSONL), subir `.json`/`.jsonl` o elegir de la muestra del dataset. Solo rechaza una alerta que no trae nada que investigar (ni `rule_id`, ni `rule_name`, ni `entities`, ni `evidence`). Si falta `alert_id` le pone uno estable (`ALR-MANUAL-…`); los demás campos que falten (`severity`, `created_at`, `entities`...) se marcan en amarillo y el servidor los completa del catálogo de reglas o los deja como aviso en el resultado. |
 
 Roles por color en toda la interfaz: violeta = IA, azul = código, lima = persona.
