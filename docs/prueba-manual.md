@@ -26,7 +26,7 @@ Recorrido de principio a fin para comprobar la web antes de la defensa. Dura uno
 - [ ] → Filtros: prueba cada desplegable (regla, severidad, veredicto y estado). ✅ El contador «N de M a la vista» cambia. → «Quitar filtros». ✅ Vuelven todas.
 - [ ] → Pon un filtro, entra en una alerta y vuelve a la cola. ✅ El filtro se conserva.
 - [ ] ✅ La franja «Lo que no resuelve» aparece en la cola.
-- [ ] ✅ Si en la cola no hay alertas del phishing de SSO, el subtítulo no debería decir «ataque agrupado». *(Fallo conocido: hoy lo dice si hay un grupo guardado fuera de la cola.)*
+- [ ] ✅ Si en la cola no hay alertas del phishing de SSO, el subtítulo no dice «ataque agrupado».
 
 ## 3. Alerta de ruido (`ALR-20261005-000301`)
 - [ ] → Entra en la alerta. ✅ Se ven las tres tarjetas **IA propone / Código decide / Persona decide**.
@@ -76,14 +76,14 @@ Recorrido de principio a fin para comprobar la web antes de la defensa. Dura uno
 - [ ] → «Solo añadir a la cola» con cualquier alerta. ✅ Entra sin triar («En cola»). → Entra en ella. ✅ Sale «Triar esta alerta».
 
 ## 11. Registro de contención
-- [ ] → Chip «Registro de contención». ✅ Están las acciones del paso 6 con hora, acción, objetivo, ticket, token de aprobación y resultado. El registro no muestra el nombre de quien aprobó, solo el token. → «Actualizar».
+- [ ] → Chip «Registro de contención». ✅ Están las acciones del paso 6 con hora, acción, objetivo, ticket, quién aprobó (nombre), token y resultado. → «Actualizar».
 
 ## 12. Plan B
 - [ ] → Activa «Modo demo» y para **solo la API del SOC** (la web sigue). Recarga y tría las 10. ✅ Se reproducen igual. El registro de contención muestra «No se pudo leer el registro…» pasados unos segundos: es lo único que no funciona.
 - [ ] → Vuelve a arrancar la API del SOC.
 
 ## 13. Persistencia
-- [ ] → Recarga (F5). ✅ La cola y el Modo demo se mantienen. Los filtros de la cola **no** (solo se conservan al ir al detalle y volver).
+- [ ] → Recarga (F5). ✅ La cola, el Modo demo y los filtros de la cola se mantienen (los filtros solo en esa pestaña: si la cierras, se pierden).
 - [ ] → «Restablecer las 10». ✅ La cola vuelve a las 10 iniciales.
 
 ## 14. Limpieza (obligatoria antes de la defensa)
@@ -98,8 +98,3 @@ Vuelve a arrancar la web y después:
 .venv\Scripts\python -m scripts.preparar_demo --informe
 ```
 Tarda ~1 min. Por último, en la web (en el navegador que vayas a usar en la demo) pulsa «Restablecer las 10» y comprueba el Modo demo. Debe quedar con 15 resultados, sin decisiones de prueba y con el registro vacío.
-
-## Fallos conocidos que esta prueba ha encontrado
-- El subtítulo de la cola cuenta grupos de todos los resultados guardados, no solo los de la cola (`src/web/static/js/vista-cola.js`).
-- Los filtros de la cola se pierden al recargar la página.
-- El registro de contención no muestra el nombre de quien aprobó.

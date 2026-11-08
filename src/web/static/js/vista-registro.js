@@ -13,12 +13,13 @@ export function montarRegistro(raiz) {
     if (!filas) return cuerpo.replaceChildren(h("div", { class: "vacio" }, "No se pudo leer el registro. ¿Está arrancada la API del SOC?"));
     if (!filas.length) return cuerpo.replaceChildren(h("div", { class: "vacio" }, "Todavía no se ha ejecutado ninguna acción."));
     cuerpo.replaceChildren(
-      h("div", { class: "tabla-reg hd", role: "row" }, ...["Cuándo", "Acción", "Objetivo", "Ticket", "Aprobación", "Resultado"].map((t) => h("span", { role: "columnheader" }, t))),
+      h("div", { class: "tabla-reg hd", role: "row" }, ...["Cuándo", "Acción", "Objetivo", "Ticket", "Aprobó", "Token", "Resultado"].map((t) => h("span", { role: "columnheader" }, t))),
       ...[...filas].reverse().map((e) => h("div", { class: "tabla-reg", role: "row" },
         h("span", { class: "m", role: "cell" }, String(e.timestamp ?? "").replace("T", " ").slice(0, 19)),
         h("span", { class: "m", role: "cell" }, e.action),
         h("span", { class: "m", role: "cell" }, e.target),
         h("span", { class: "m", role: "cell" }, e.ticket_id || "—"),
+        h("span", { role: "cell" }, e.approved_by || "—"),
         h("span", { class: "m", role: "cell" }, e.approval_token || "sin token (N1)"),
         h("span", { role: "cell" }, e.result))));
   };
