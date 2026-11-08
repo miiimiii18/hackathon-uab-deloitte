@@ -93,7 +93,7 @@ function porQue(r) {
     const fuera = e.event_id && rel.size && porId.has(e.event_id) && !rel.has(e.event_id);
     return h("li", { style: { margin: "6px 0" } },
       h("span", { class: "ia-voz", style: { fontSize: "15px" } }, e.finding), " ",
-      e.event_id ? h("span", { class: `cita ${fuera ? "fuera" : ""}`, title: fuera ? "Evento que NO venía en la alerta: lo encontró el triaje" : "Evento citado" }, e.event_id) : null,
+      e.event_id && e.event_id !== r.alert_id ? h("span", { class: `cita ${fuera ? "fuera" : ""}`, title: fuera ? "Evento que NO venía en la alerta: lo encontró el triaje" : "Evento citado" }, e.event_id) : null,
       e.source ? h("span", { class: "m", style: { fontSize: "11px", color: "var(--mu)" } }, ` ${e.source}`) : null,
       fuera ? h("span", { class: "m", style: { fontSize: "11px", color: "var(--med)" } }, " · fuera de la alerta") : null);
   });
