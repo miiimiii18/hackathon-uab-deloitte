@@ -73,6 +73,18 @@ def test_busca_en_el_dataset(cliente):
     assert cliente.get("/api/alertas/NO-EXISTE").status_code == 404
 
 
+def test_con_texto_busca_en_todo_el_dataset_y_sin_texto_lista_la_muestra(cliente, tmp_path, monkeypatch):
+    fuera = {"alert_id": "ALR-3", "rule_id": "UC-OT-001", "rule_name": "Acceso a OT", "severity": "high",
+             "source_product": "FW", "created_at": "2026-10-09T11:00:00.000Z"}
+    completo = tmp_path / "alertas.jsonl"
+    completo.write_text("\n".join(json.dumps(a) for a in [*ALERTAS, fuera]), encoding="utf-8")
+    monkeypatch.setattr(api, "RUTA_ALERTAS", completo)
+    monkeypatch.setattr(api, "_indice_cache", {})
+    assert [a["alert_id"] for a in cliente.get("/api/alertas", params={"q": "ALR-3"}).json()] == ["ALR-3"]
+    assert [a["alert_id"] for a in cliente.get("/api/alertas", params={"q": "uc-ot-001"}).json()] == ["ALR-3"]
+    assert [a["alert_id"] for a in cliente.get("/api/alertas").json()] == ["ALR-1", "ALR-2"]
+
+
 def test_el_triaje_envia_las_etapas_y_guarda_el_resultado(cliente, tmp_path):
     r = cliente.post("/api/triaje", json={"alertas": ["ALR-1", "ALR-2"], "paralelo": 2})
     evs = eventos(r)
