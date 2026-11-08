@@ -92,9 +92,9 @@ copy .env.example .env                                                   # pon L
 .venv\Scripts\python -m uvicorn mock_soc_api:app --app-dir data/tarvia/06_herramientas --host 127.0.0.1 --port 8000
 # Terminal 2: la web → http://127.0.0.1:8080
 .venv\Scripts\python -m src.web
-# Terminal 3 (una vez por ordenador): deja la cola triada y el informe N3 generado
-.venv\Scripts\python -m scripts.preparar_demo --informe
 ```
+
+En la web: **«Cargar alertas»** → pegar o subir el JSON/JSONL con las alertas → **«Cargar y triar»**. La bandeja empieza vacía y solo analiza las alertas que se cargan.
 
 Usad siempre `127.0.0.1` y no `localhost` (en Windows, `localhost` añade ~2 s a cada consulta).
 
@@ -111,9 +111,8 @@ Desde la terminal, sin la web:
 
 Web propia (FastAPI + HTML/CSS/JS sin build ni recursos de terceros). Cómo está hecha: [`docs/web.md`](docs/web.md).
 
-- **Cola de alertas** que se trían en paralelo, con su avance por Evidencia → IA → Política → Persona, filtros y la etiqueta «Mismo ataque».
-- **Detalle** de cada alerta: qué ha consultado el sistema, en qué se basa, qué propone la IA, qué decide el código y qué falta por decidir a la persona.
-- **Cargar alertas**: pegar un JSON nuevo, subir un fichero o elegir del dataset (para las 10 alertas en directo).
+- **Bandeja de alertas**: solo las que se cargan (pegar un JSON, subir un fichero o elegir del dataset), triadas en paralelo y con su sello de decisión. Las del mismo ataque llevan la etiqueta «Mismo ataque» y suben a N2 juntas.
+- **Detalle** de cada alerta: qué ha consultado el sistema, en qué se basa (con los eventos que no venían en la alerta), la cronología, qué propone la IA, cómo calcula el código la gravedad y qué falta por decidir a la persona.
 - **Informe de investigación** (N3) de lo escalado y **registro de contención** con quién aprobó cada acción.
 
 ## 🗂️ Estructura
@@ -122,17 +121,16 @@ Web propia (FastAPI + HTML/CSS/JS sin build ni recursos de terceros). Cómo est�
 ├── src/            # backend: evidencia, LLM, política, ticket, triaje, agrupación, investigación, contención
 │   ├── esquemas/   # esquemas de salida de Deloitte (ticket e informe)
 │   └── web/        # API FastAPI y front estático
-├── scripts/        # evaluar.py (gold set) y preparar_demo.py (deja la cola triada)
+├── scripts/        # evaluar.py (gold set) y preparar_demo.py (tría un conjunto de ejemplo)
 ├── evaluacion/     # casos etiquetados, alertas inventadas y resultados
 ├── tests/          # tests con pytest (los ejecuta el CI con ruff)
-├── docs/           # plan de trabajo, arranque, web, limitaciones y pitch
+├── docs/           # plan de trabajo, arranque, web y limitaciones
 ├── writeups/       # un documento por nivel resuelto
 └── data/           # dataset y resultados locales (ignorados por git)
 ```
 
 ## 📽️ Demo y presentación
 
-- Guion de 5 minutos y plan B: [`docs/pitch.md`](docs/pitch.md).
 - Cómo lo hemos construido, nivel a nivel: [`writeups/`](writeups/).
 - Hoja de ruta y decisiones: [`docs/plan-de-trabajo.md`](docs/plan-de-trabajo.md).
 

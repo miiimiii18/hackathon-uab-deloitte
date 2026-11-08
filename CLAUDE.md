@@ -32,7 +32,7 @@ Lo que se añadió el 7-nov (además del N1 que ya existía):
 - **Endurecimiento**: `ext.logisoft` fuera de L–V 8–18 h y las reglas de severidad crítica **no se cierran** sin autorización verificada (pasan a `needs_more_info`). Motivo: el modelo cerró un ataque en 1 de 2 repeticiones.
 - **Web**: filtros en la cola, etiqueta «Mismo ataque», tarjetas «IA propone / Código decide / Persona decide», corrección humana del veredicto (con nombre y motivo, no cambia lo que calculó el código), alerta original, pantalla `#/registro` de contención y panel del informe N3.
 - **Evaluación**: `scripts/evaluar.py` mide veredicto, severidad y decisión (cerrar/revisar/escalar). Resultados en `evaluacion/resultados-2026-11-07.txt`.
-- **Documentos de entrega**: `docs/limitaciones.md`, `docs/one-pager-comite.md`, `docs/pitch.md` (guion de 5 min con plan B) y `writeups/01` a `05`.
+- **Documentos de entrega**: `docs/limitaciones.md`, `docs/one-pager-comite.md` y `writeups/01` a `05`. (`docs/pitch.md` se borró el 8-nov: la presentación es de 3 min y el guion lo lleva el equipo.)
 
 Lo que se hizo el 8-nov:
 - **Prueba manual completa de la web** con Playwright y Chrome, de la cabecera al plan B con la API del SOC caída: todo pasa. La lista paso a paso está en [`docs/prueba-manual.md`](docs/prueba-manual.md) (unos 20–25 min, para repetirla a mano).
@@ -62,7 +62,7 @@ Endpoints web que importan: `POST /api/triaje` (SSE), `GET /api/grupos`, `POST /
 ## Qué falta por hacer
 
 Por orden de importancia para la defensa:
-1. **Ensayo de la demo con persona y cronómetro (dos veces) y vídeo/capturas del plan B.** Guion en [`docs/pitch.md`](docs/pitch.md). Antes: `python -m scripts.preparar_demo --informe` (ver abajo).
+1. **Ensayo de la demo de 3 min con persona y cronómetro (dos veces) y vídeo/capturas del plan B.** En la web: «Cargar alertas» con el JSON y «Cargar y triar».
 2. **Dejar la demo limpia justo antes de defender** (paso 14 de [`docs/prueba-manual.md`](docs/prueba-manual.md)): borrar `data/out/web`, `containment_log.jsonl`, regenerar con `preparar_demo --informe` y pulsar «Vaciar» en el navegador de la demo. La bandeja empieza vacía y solo tiene las alertas que se cargan (las cargadas sustituyen a las anteriores).
 3. **Congelar `main` las 2 últimas horas** (solo arreglos y demo).
 4. Que todo el equipo lea `politica_soc.md`, `empresa_tarvia.md` y los 10 runbooks.
@@ -222,7 +222,7 @@ Acordados en el plan de trabajo (sección 4). Cualquier código nuevo debe respe
 ├── notebooks/    # exploración y prototipos
 ├── data/         # datos locales, ignorados por git (excepto data/README.md)
 ├── writeups/     # un .md por misión resuelta, a partir de writeups/_plantilla.md
-├── docs/         # plan de trabajo, pitch y documentación
+├── docs/         # plan de trabajo y documentación
 ├── scripts/      # utilidades (setup.sh)
 └── tests/        # tests con pytest
 ```
@@ -307,7 +307,6 @@ Las 2 últimas horas antes de la entrega `main` queda congelada: solo se aceptan
 ## Documentar sobre la marcha
 
 - Cada nivel o parte resuelta tiene su writeup en `writeups/NN-nombre.md`, creado a partir de `writeups/_plantilla.md`.
-- El guion del pitch está en `docs/pitch.md`.
 - Según el plan, también hay que preparar `docs/one-pager-comite.md` (la página para el comité de dirección) y `docs/limitaciones.md` (lo que la solución no resuelve).
 - Al terminar una tarea del plan, marca su casilla en `docs/plan-de-trabajo.md`.
 

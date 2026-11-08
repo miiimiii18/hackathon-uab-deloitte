@@ -45,12 +45,8 @@ git pull
 
 El navegador se abre solo en **http://127.0.0.1:8080**. Dejad las dos terminales abiertas mientras uséis la web.
 
-## 4. Dejar la cola triada (una vez por ordenador, unos 1,5 minutos)
-Los resultados guardados no están en git (`data/` está ignorada), así que en un ordenador nuevo la cola sale sin triar. Con las dos terminales anteriores en marcha, abrid una tercera:
-```powershell
-.venv\Scripts\python -m scripts.preparar_demo --informe
-```
-Tría las 10 alertas de la cola y las 5 del phishing de SSO, y genera el informe N3. Quedan guardadas y la web las enseña al arrancar.
+## 4. Usarla
+En la web: **«Cargar alertas»** → pegar o subir el JSON/JSONL → **«Cargar y triar»**. La bandeja empieza vacía y solo analiza las alertas que se cargan (sustituyen a las anteriores). «Vaciar» la deja en blanco. Los resultados se guardan en `data/out/web/` (no está en git).
 
 Antes de la defensa, borrad el registro de contención para empezar vacíos:
 ```powershell
@@ -71,6 +67,7 @@ Deberían salir todos los tests en verde (177 el 7-nov).
 | «Address already in use» | Ya hay algo usando el puerto 8000 o el 8080 (quizá una terminal anterior). Cerradla, o arrancad la web en otro puerto: `$env:WEB_PORT=8081; .venv\Scripts\python -m src.web`. |
 | La cabecera marca el SOC en rojo | La terminal 1 no está arrancada o se ha cerrado. |
 | Un triaje tarda más de unos 30 s o da error | El servidor del DCC está saturado o caído. **La cabecera no lo avisa**. Lo ya triado sigue abriéndose; para lo demás, esperad o usad las capturas del plan B. |
-| La cola sale sin triar | Falta el paso 4 (`scripts.preparar_demo`). |
+| La bandeja sale vacía | Es lo normal: cargad el JSON con «Cargar alertas». |
+| Se ven alertas antiguas o la web se ve rara | Recargad con Ctrl+Shift+R. |
 
-Cómo está hecha la web y qué hace cada pantalla: [`docs/web.md`](web.md). Guion de la demo y plan B: [`docs/pitch.md`](pitch.md).
+Cómo está hecha la web y qué hace cada pantalla: [`docs/web.md`](web.md).
