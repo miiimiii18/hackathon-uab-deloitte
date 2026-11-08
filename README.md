@@ -2,6 +2,8 @@
 
 > Un sistema que hace el **triaje de nivel 1 de las alertas de un SOC**: investiga cada alerta con los datos de la empresa, propone un veredicto argumentado y deja a la persona del SOC una conclusión lista para decidir. **La IA propone, el código decide la severidad y los permisos, y una persona aprueba.**
 
+> 📋 **Reporte de las 10 alertas de la demo:** [`REPORTE_10_ALERTAS.md`](REPORTE_10_ALERTAS.md) (por qué saltó cada una, qué se investigó, qué se concluye y qué acciones se proponen). Tickets en formato Deloitte: [`REPORTE_10_ALERTAS_tickets.json`](REPORTE_10_ALERTAS_tickets.json).
+
 ## 👥 Equipo
 
 Estudiantes del grado de Inteligencia Artificial de la UAB. No hay áreas fijas: todos hemos hecho de todo.
