@@ -1,5 +1,5 @@
 import { api } from "./api.js";
-import { h, logo } from "./dom.js";
+import { h } from "./dom.js";
 import { estado, iniciar, ponerDemo, suscribir } from "./estado.js";
 import { montarCola } from "./vista-cola.js";
 import { montarDetalle } from "./vista-detalle.js";
@@ -33,12 +33,13 @@ function pintarSistema() {
 function pintarCabecera() {
   const s = estado.servidor;
   const luz = (ok) => h("span", { class: `dot ${s == null ? "" : ok ? "ok" : "mal"}` });
+  const hoy = new Date().toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
   cabecera.replaceChildren(
-    h("a", { class: "marca", href: "#/", "aria-label": "TEMIPO, cola de alertas" }, logo(), h("b", {}, "TEMIPO"), h("span", {}, "Triaje N1 · Tarvia")),
+    h("div", { class: "fecha" }, hoy.charAt(0).toUpperCase() + hoy.slice(1), h("br"), "SOC de Tarvia Group · equipo TEMIPO"),
+    h("a", { class: "marca", href: "#/", "aria-label": "Parte de triaje, volver a las alertas" }, h("b", {}, "Parte de triaje"), h("span", {}, "Nivel 1 asistido por IA · reto Deloitte")),
     h("div", { class: "estado" },
-      h("a", { class: "chip", href: "#/registro", title: "Acciones de contención ejecutadas" }, "Registro de contención"),
       h("span", { class: "chip", title: s?.soc_url }, luz(s?.soc), "API del SOC"),
-      h("span", { class: "chip", title: s?.llm_aviso || (s ? `Modelo ${s.modelo}` : "") }, luz(s?.llm), s?.llm ? `LLM ${s.modelo}` : "LLM no disponible"),
+      h("span", { class: "chip", title: s?.llm_aviso || (s ? `Modelo ${s.modelo}` : "") }, luz(s?.llm), s?.llm ? `${s.modelo} · DCC` : "LLM no disponible"),
       h("label", { class: "chip", title: "Reproduce resultados guardados, sin tocar la API ni el LLM" },
         h("input", { type: "checkbox", checked: estado.demo, onChange: (e) => ponerDemo(e.target.checked) }), "Modo demo")));
   pintarSistema();

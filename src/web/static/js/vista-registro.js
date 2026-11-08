@@ -26,7 +26,7 @@ export function montarRegistro(raiz) {
   raiz.replaceChildren(
     h("section", { class: "cabecera entra" },
       h("div", {}, h("h1", { class: "d" }, "Registro de contención"),
-        h("p", {}, "Acciones ejecutadas en la API simulada. Cada una necesitó la aprobación de una persona, salvo block_ioc y purge_email.")),
+        h("p", {}, "Acciones ejecutadas y quién las aprobó.")),
       h("div", { class: "cifras" }, h("a", { class: "btn", href: "#/" }, "Cola de alertas"), h("button", { class: "btn go", type: "button", onClick: recargar }, "Actualizar"))),
     h("section", { class: "card scroll entra", role: "table", "aria-label": "Registro de contención" }, cuerpo));
   recargar();

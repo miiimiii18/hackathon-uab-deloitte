@@ -133,8 +133,7 @@ export function abrirPanel() {
       zona.addEventListener("drop", (e) => { e.preventDefault(); zona.classList.remove("sobre"); leerFicheros(e.dataTransfer.files); });
       cuerpo.replaceChildren(zona, resumen);
     } else {
-      buscador = h("input", { type: "search", placeholder: "Buscar por ID, regla o producto (todo el dataset)", "aria-label": "Buscar alerta",
-        style: { minHeight: "44px", padding: "0 14px", borderRadius: "12px", border: "1px solid #3a444a", background: "#0a0e10", color: "var(--tx)", font: "14px var(--f-b)" } });
+      buscador = h("input", { type: "search", placeholder: "Buscar por ID, regla o producto (todo el dataset)", "aria-label": "Buscar alerta" });
       lista = h("div", { class: "lista-ds" });
       let espera;
       buscador.addEventListener("input", () => { clearTimeout(espera); espera = setTimeout(buscar, 250); });
@@ -164,7 +163,6 @@ export function abrirPanel() {
     h("div", { class: "velo", onClick: cerrar }),
     h("aside", { class: "panel", role: "dialog", "aria-modal": "true", "aria-label": "Cargar alertas" },
       h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px" } }, h("h2", { class: "d" }, "Cargar alertas"), cierre),
-      h("p", { style: { margin: "-6px 0 0", color: "var(--mu)" } }, "Pueden ser alertas que el sistema no haya visto."),
       h("div", { class: "tabs" }, ...pestañas.map(([, b]) => b)),
       cuerpo, pie));
   pintarModo();

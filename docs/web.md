@@ -34,7 +34,10 @@ No hay `npm`, ni build, ni fuentes ni recursos de terceros: todo es estático y 
 | **Registro** (`#/registro`) | Acciones ejecutadas en la API simulada (`containment_log`): cuándo, acción, objetivo, ticket, quién aprobó, token de aprobación y resultado. |
 | **Cargar alertas** (panel lateral) | Pegar JSON (uno, lista o JSONL), subir `.json`/`.jsonl` o elegir de la muestra del dataset. Solo rechaza una alerta que no trae nada que investigar (ni `rule_id`, ni `rule_name`, ni `entities`, ni `evidence`). Si falta `alert_id` le pone uno estable (`ALR-MANUAL-…`); los demás campos que falten (`severity`, `created_at`, `entities`...) se marcan en amarillo y el servidor los completa del catálogo de reglas o los deja como aviso en el resultado. |
 
-Roles por color en toda la interfaz: violeta = IA, azul = código, lima = persona.
+Diseño de «parte de triaje» (tema claro, solo fuentes del sistema, sin recursos externos). Cada rol tiene su voz tipográfica: la IA habla en cursiva serif con ✦, el código en monoespaciada con `{ }` y la persona firma en azul tinta (✍). El color se reserva para la gravedad y para los sellos de la decisión (Escalar · N2, Revisión humana, Cerrar). Cada bloque del detalle lleva el nivel del reto que cubre (N1–N4).
+
+- **Cola:** bandeja de entrada, marcador (triadas, escalar, revisión, cerrar, ataques agrupados) y una fila por alerta con la razón de la IA y su cita, la línea del código, la cuenta de la gravedad, un punto por consulta (rojo malicioso, hueco desconocido, verde limpio) y el sello.
+- **Detalle (expediente):** conclusión y «quién decide qué» arriba; a la izquierda, por qué (eventos citados, con los que **no** venían en la alerta en ocre), la cronología, el grafo de implicados, las dudas de la IA, el grupo, el informe N3 y la evidencia completa; a la derecha, qué ha consultado (cascada con tiempos reales), la matriz de gravedad y la contención que firma una persona.
 
 ## Modo demo (plan B sin red)
 
@@ -44,7 +47,7 @@ Cada triaje se guarda en `data/out/web/<alert_id>.json`. Con «Modo demo» activ
 
 | Endpoint | Para qué |
 |---|---|
-| `GET /api/estado` | API del SOC y LLM disponibles, modelo, paralelismo |
+| `GET /api/estado` | API del SOC y LLM disponibles, modelo, paralelismo y la matriz de severidad de `src/policy.py` (la web la dibuja, no tiene copia) |
 | `GET /api/cola-inicial`, `GET /api/alertas?q=`, `GET /api/alertas/{id}` | Alertas del dataset |
 | `POST /api/triaje` | Tría alertas (IDs o JSON) en paralelo; responde por SSE con `etapa`, `resultado` y `fin` |
 | `GET /api/resultados`, `GET /api/resultados/{id}` | Resúmenes y resultado completo de `triar()` |
@@ -63,4 +66,5 @@ La documentación interactiva está en `/api/docs`.
 - El texto de alertas y logs puede escribirlo el atacante: el front construye el DOM solo con `textContent` (`src/web/static/js/dom.js`), nunca con `innerHTML`.
 - La contención solo se ejecuta desde un botón, con nombre de quien aprueba cuando la política lo exige. «Mantén pulsado» evita pulsaciones accidentales.
 - El servidor escucha solo en `127.0.0.1`.
+- Los ficheros del front se sirven con `Cache-Control: no-cache`: tras un `git pull` el navegador no mezcla JS viejo con CSS nuevo. Si alguien abrió la web antes de este cambio, que recargue una vez con Ctrl+Shift+R.
 - Antes de la demo, borrar `data/tarvia/06_herramientas/containment_log.jsonl` para empezar con el registro vacío.

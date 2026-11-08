@@ -1,5 +1,14 @@
 export const DECISION = { escalar: "Escalar a N2", revisar: "Revisar", cerrar: "Cerrar" };
+export const SELLO = { escalar: "Escalar · N2", revisar: "Revisión humana", cerrar: "Cerrar" };
 export const SEVERIDADES = ["informational", "low", "medium", "high", "critical"];
+// Lo que se lee en pantalla; los valores internos (los del esquema de Deloitte) no cambian.
+export const VEREDICTO = { true_positive: "Ataque real", benign_true_positive: "Autorizado", false_positive: "Falsa alarma", needs_more_info: "Falta información" };
+export const GRAVEDAD = { informational: "info", low: "baja", medium: "media", high: "alta", critical: "crítica" };
+export const veredicto = (v) => VEREDICTO[v] ?? v ?? "—";
+export const gravedad = (s) => GRAVEDAD[s] ?? s ?? "—";
+// Los textos de la política mezclan valores internos («true_positive de severidad critical»): se leen en castellano.
+const TERMINOS = new RegExp(`\\b(${[...Object.keys(VEREDICTO), ...Object.keys(GRAVEDAD)].join("|")})\\b`, "g");
+export const legible = (texto) => String(texto ?? "").replace(TERMINOS, (t) => (VEREDICTO[t] ?? GRAVEDAD[t]).toLowerCase()).replace(/\bseveridad\b/g, "gravedad");
 
 export const ETAPA = {
   pendiente: "En cola",
