@@ -69,10 +69,11 @@ label.chip input { width: 15px; height: 15px; margin: 0; accent-color: var(--lim
 .vacio { padding: 36px 24px; text-align: center; color: var(--mu); }
 
 /* Cola: bandeja y marcador */
-.bandeja { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 28px; align-items: center; padding: 22px 0 18px; }
+.bandeja { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 28px; align-items: center; padding: 22px 0 18px; }
 .bandeja h1 { font: 400 34px/1.1 var(--f-d); margin: 4px 0 8px; }
 .bandeja p { margin: 0; color: var(--mu); max-width: 60ch; }
-.drop { border: 1.5px dashed var(--tenue); border-radius: 6px; background: var(--s1); padding: 16px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.drop { border: 1.5px dashed var(--tenue); border-radius: 6px; background: var(--s1); padding: 16px; display: flex; flex-wrap: nowrap; gap: 12px; align-items: center; }
+.drop .btn { white-space: nowrap; }
 .drop .pila { display: flex; } .drop .pila b { width: 26px; height: 34px; background: var(--s2); border: 1px solid var(--ln); border-radius: 2px; margin-left: -12px; box-shadow: 1px 1px 0 var(--ln); }
 .drop .pila b:first-child { margin-left: 0; }
 .marcador { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); border-top: 1px solid var(--tx); border-bottom: 1px solid var(--ln); }
@@ -240,7 +241,7 @@ pre.json { margin: 8px 0 0; padding: 12px 14px; background: var(--s2); border: 1
 @media (max-width: 760px) {
   .wrap { padding: 0 16px 32px; }
   .top { grid-template-columns: 1fr; text-align: center; } .top .fecha { display: none; } .estado { justify-content: center; }
-  .marca b { font-size: 30px; } .bandeja { grid-template-columns: 1fr; } .bandeja h1 { font-size: 26px; }
+  .marca b { font-size: 30px; } .bandeja { grid-template-columns: 1fr; } .drop { flex-wrap: wrap; } .bandeja h1 { font-size: 26px; }
   .marcador { grid-template-columns: repeat(2, 1fr); } .marcador > div { padding-left: 0; border-right: 0; }
   .fila { grid-template-columns: 1fr; gap: 8px; } .fila .num { display: none; } .fila .sello-c { grid-column: auto; }
   .reparto { grid-template-columns: 1fr; } .reparto > div { border-right: 0; border-bottom: 1px solid var(--tx); }

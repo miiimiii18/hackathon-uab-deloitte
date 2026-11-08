@@ -116,7 +116,7 @@ export function montarCola(raiz) {
   const filas = new Map();
   const cifras = {};
   const cifra = (clave, rotulo, color) => h("div", {}, h("span", { class: "cap" }, rotulo), cifras[clave] = h("b", { style: color ? { color } : {} }, "0"));
-  let titular, entradilla, btnTriar, cuerpo, resumenTiempo;
+  let titular, entradilla, btnTriar, btnVaciar, cuerpo, resumenTiempo;
   const selectores = {};
 
   function selector(clave, rotulo, opciones) {
@@ -143,6 +143,8 @@ export function montarCola(raiz) {
         h("div", { class: "pila", "aria-hidden": "true" }, h("b"), h("b"), h("b"), h("b")),
         h("div", { style: { flex: "1 1 160px" } }, h("b", { style: { fontWeight: 600 } }, "Alertas nuevas"),
           h("div", { class: "m", style: { fontSize: "12px", color: "var(--mu)" } }, "JSON o JSONL")),
+        btnVaciar = h("button", { class: "btn", type: "button", title: "Quita todas las alertas de la bandeja",
+          onClick: () => { if (confirm("¿Vaciar la bandeja? Se quitan todas las alertas de la lista (los resultados guardados no se borran).")) vaciarBandeja(); } }, "Vaciar"),
         h("button", { class: "btn", type: "button", onClick: () => abrirPanel() }, "Cargar alertas"),
         btnTriar = h("button", { class: "btn go", type: "button" }))),
     h("section", { class: "marcador entra", "aria-label": "Resumen" },
@@ -165,9 +167,7 @@ export function montarCola(raiz) {
       h("div", {}, h("b", {}, "80–86 %"), h("h3", {}, "de veredictos acertados")),
       h("div", {}, h("b", {}, "2–6"), h("h3", {}, "casos cambian entre repeticiones")),
       h("div", {}, h("b", {}, "○"), h("h3", {}, "desconocido no es limpio")),
-      h("div", {}, h("b", {}, "±24 h"), h("h3", {}, "de contexto por alerta"))),
-    h("div", { style: { display: "flex", justifyContent: "flex-end", paddingTop: "10px" } },
-      h("button", { class: "btn sm", type: "button", onClick: () => vaciarBandeja() }, "Vaciar la bandeja")));
+      h("div", {}, h("b", {}, "±24 h"), h("h3", {}, "de contexto por alerta"))));
 
   btnTriar.addEventListener("click", () => triarFilas([...estado.filas.keys()], estado.servidor?.paralelo ?? 5));
 
@@ -202,6 +202,8 @@ export function montarCola(raiz) {
     entradilla.textContent = visibles.length === lista.length ? "" : `A la vista: ${visibles.length} de ${lista.length}.`;
     btnTriar.textContent = estado.triando ? "Triando…" : lista.length ? `Triar las ${lista.length}` : "Triar";
     btnTriar.disabled = estado.triando || !lista.length;
+    btnVaciar.hidden = !lista.length; // solo se ofrece cuando hay algo que quitar
+    btnVaciar.disabled = estado.triando;
   }
 
   const baja = suscribir(pintar);
