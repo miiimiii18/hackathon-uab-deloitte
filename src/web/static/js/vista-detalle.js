@@ -495,12 +495,18 @@ function persona(r, recargar) {
 
 // --- Cabecera: conclusión y quién decide qué ------------------------------------------------------
 
+// Sola se cerraría o revisaría, pero su grupo (mismo ataque) se escala: sube a N2 con él.
+const subePorGrupo = (r) => r.politica && r.politica.decision !== "escalar" && estado.grupos.get(r.alert_id)?.ticket?.decision === "escalar";
+
 function cabecera(r, meta) {
   const t = r.ticket, p = r.politica, ia = r.llm?.analisis;
   const m = meta ?? r.meta ?? {};
+  const sello = !p ? null : subePorGrupo(r)
+    ? h("span", { class: "sello escalar", style: { marginLeft: "auto" } }, "Escalar · grupo")
+    : h("span", { class: `sello ${p.decision}`, style: { marginLeft: "auto" } }, SELLO[p.decision] ?? p.decision);
   return h("section", { class: "detalle-cab entra" },
     h("div", { class: "meta" }, h("span", { class: "cap" }, [r.alert_id, m.source_product, m.rule_id, m.created_at ? hora(m.created_at) : null].filter(Boolean).join(" · ")),
-      p ? h("span", { class: `sello ${p.decision}`, style: { marginLeft: "auto" } }, SELLO[p.decision] ?? p.decision) : null),
+      sello),
     h("h1", {}, t?.title ?? m.rule_name ?? r.alert_id),
     ia?.summary ? h("p", { class: "entradilla" }, h("span", { class: "ia-marca" }, "✦ "), ia.summary) : null);
 }
@@ -513,18 +519,21 @@ function reparto(r) {
   const aN2 = humano.find((d) => d.tipo === "escalar_n2");
   const correccion = [...humano].reverse().find((d) => d.tipo === "corregir");
   const corregido = p && p.veredicto_llm && p.veredicto_llm !== p.veredicto;
+  const porGrupo = subePorGrupo(r);
+  const decision = porGrupo ? "escalar" : p?.decision;
   const pendientes = (r.ticket?.recommended_actions || []).filter((a) => !["close", "human_review"].includes(a.action) && a.permitida && !ejecutada(r.ticket, a)).length;
   let persona;
   if (correccion) persona = [h("div", { class: "q" }, `Corrigió: ${veredicto(correccion.veredicto)}`), h("small", {}, `${correccion.por}: ${cortar(correccion.motivo, 80)}`)];
   else if (cerrada || aN2) persona = [h("div", { class: "q" }, cerrada ? "Cierre confirmado" : "Pasada a N2"), h("small", {}, (cerrada ?? aN2).por)];
-  else persona = [h("div", { class: "q" }, p?.decision === "cerrar" ? "Confirmar el cierre" : pendientes ? `${pendientes} acciones esperan tu firma` : "Decidir")];
+  else persona = [h("div", { class: "q" }, decision === "cerrar" ? "Confirmar el cierre" : pendientes ? `${pendientes} acciones esperan tu firma` : "Decidir")];
   return h("section", { class: "reparto entra", "aria-label": "Quién decide qué" },
     h("div", {}, h("span", { class: "cap" }, "✦ La IA propone"), h("div", { class: "q ia-voz" }, ia ? veredicto(ia.verdict) : "Sin análisis"),
       h("small", {}, ia ? `confianza ${Number(ia.confidence).toFixed(2).replace(".", ",")} · ${(ia.evidence || []).length} eventos citados` : "")),
     h("div", {}, h("span", { class: "cap" }, "{ } El código decide"),
-      h("div", { class: "q", style: { color: p?.decision === "escalar" ? "var(--crit)" : p?.decision === "revisar" ? "var(--med)" : "var(--ok)" } },
-        p ? `${corregido ? `${veredicto(p.veredicto)} · ` : ""}${gravedad(p.severidad_final)} · ${SELLO[p.decision] ?? DECISION[p.decision] ?? p.decision}` : "—"),
-      h("small", {}, p ? [corregido ? "corrige a la IA" : null, p.sla?.tiempo_triaje ? `plazo ${p.sla.tiempo_triaje}` : null].filter(Boolean).join(" · ") : "")),
+      h("div", { class: "q", style: { color: decision === "escalar" ? "var(--crit)" : decision === "revisar" ? "var(--med)" : "var(--ok)" } },
+        p ? `${corregido ? `${veredicto(p.veredicto)} · ` : ""}${gravedad(p.severidad_final)} · ${porGrupo ? "Escalar · grupo" : SELLO[p.decision] ?? DECISION[p.decision] ?? p.decision}` : "—"),
+      h("small", {}, p ? [corregido ? "corrige a la IA" : null, porGrupo ? `sola se ${p.decision === "cerrar" ? "cerraría" : "revisaría"}; su grupo sube a N2` : null,
+        p.sla?.tiempo_triaje ? `plazo ${p.sla.tiempo_triaje}` : null].filter(Boolean).join(" · ") : "")),
     h("div", { class: "pe" }, h("span", { class: "cap" }, "✍ Tú decides"), ...persona));
 }
 

@@ -13,6 +13,11 @@ const CLAVE_FILTROS = "temipo.filtros";
 const filtros = { regla: "", severidad: "", veredicto: "", estado: "", ...JSON.parse(sessionStorage.getItem(CLAVE_FILTROS) ?? "{}") };
 const guardarFiltros = () => sessionStorage.setItem(CLAVE_FILTROS, JSON.stringify(filtros));
 
+// Una alerta que forma parte de un ataque agrupado sube a N2 con su grupo (el servidor escala todo
+// grupo), aunque por sí sola se cerraría. Se enseña así para que «Ataque real» + «Cerrar» no confunda.
+const subePorGrupo = (f) => f.etapa === "listo" && f.resumen.decision !== "escalar" && estado.grupos.get(f.id)?.ticket?.decision === "escalar";
+const decisionDe = (f) => (subePorGrupo(f) ? "escalar" : f.resumen.decision);
+
 function pasaFiltros(f) {
   const listo = f.etapa === "listo";
   const r = f.resumen;
@@ -20,7 +25,7 @@ function pasaFiltros(f) {
   if (filtros.severidad && !(listo && r.severidad === filtros.severidad)) return false;
   if (filtros.veredicto && !(listo && r.veredicto === filtros.veredicto)) return false;
   if (filtros.estado) {
-    const actual = listo ? r.decision : f.etapa === "error" ? "error" : "pendiente";
+    const actual = listo ? decisionDe(f) : f.etapa === "error" ? "error" : "pendiente";
     if (actual !== filtros.estado) return false;
   }
   return true;
@@ -98,7 +103,11 @@ function actualizarFila(el, f, n) {
         h("span", { style: { color: "var(--lime)" }, title: `${res.correccion.por}: ${res.correccion.motivo}` }, `corrige: ${veredicto(res.correccion.veredicto)}`)) : null]);
     r.cons.append(h("div", { class: "cap" }, `${res.consultas?.total ?? "?"} consultas`), puntos(res.consultas),
       res.segundos != null ? h("div", { class: "m", style: { fontSize: "11px", color: "var(--mu)", marginTop: "4px" } }, `${Math.round(res.segundos)} s`) : null);
-    r.sello.append(h("span", { class: `sello ${res.decision}` }, SELLO[res.decision] ?? res.decision));
+    if (subePorGrupo(f)) {
+      r.sello.append(h("span", { class: "sello escalar", title: `Sola se ${res.decision === "cerrar" ? "cerraría" : "revisaría"}; su grupo (mismo ataque) se escala a N2` }, "Escalar · grupo"));
+    } else {
+      r.sello.append(h("span", { class: `sello ${res.decision}` }, SELLO[res.decision] ?? res.decision));
+    }
   } else if (enCurso) {
     r.razon.className = "razon";
     r.razon.append(h("span", { class: "ia-voz", style: { color: "var(--mu)" } }, `${ETAPA[f.etapa]}…`));
@@ -180,7 +189,7 @@ export function montarCola(raiz) {
     for (const f of lista) if (!visibles.includes(f)) filas.get(f.id).remove();
     cuerpo.querySelectorAll(".vacio").forEach((e) => e.remove());
     // Primero lo que necesita a una persona; después lo cerrado; lo pendiente al final.
-    const peso = (f) => (f.etapa === "listo" ? ({ escalar: 0, revisar: 1, cerrar: 3 }[f.resumen.decision] ?? 3) : f.etapa === "error" ? 2 : 4);
+    const peso = (f) => (f.etapa === "listo" ? ({ escalar: 0, revisar: 1, cerrar: 3 }[decisionDe(f)] ?? 3) : f.etapa === "error" ? 2 : 4);
     const orden = visibles.map((f, i) => [f, i]).sort((a, b) => peso(a[0]) - peso(b[0]) || a[1] - b[1]).map(([f]) => f);
     orden.forEach((f, i) => {
       const el = filas.get(f.id);
@@ -191,7 +200,7 @@ export function montarCola(raiz) {
     else if (!visibles.length) cuerpo.replaceChildren(h("div", { class: "vacio" }, "Ninguna alerta cumple los filtros."));
 
     const listas = lista.filter((f) => f.etapa === "listo");
-    const cuenta = (d) => listas.filter((f) => f.resumen.decision === d).length;
+    const cuenta = (d) => listas.filter((f) => decisionDe(f) === d).length;
     cifras.listas.textContent = `${listas.length}`;
     resumenTiempo.textContent = estado.triando || estado.segundos ? ` en ${minutos(estado.segundos)}` : ` de ${lista.length}`;
     cifras.escalar.textContent = cuenta("escalar");
