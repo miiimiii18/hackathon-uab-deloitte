@@ -48,11 +48,11 @@ export const api = {
 // Triaje en directo: el servidor responde con eventos SSE (etapa por alerta y resultado al terminar).
 // Si la conexión se corta antes del evento «fin» se lanza ErrorConexion: el servidor sigue triando
 // y guardando, así que quien llama puede recuperar los resultados.
-export async function triar(alertas, { paralelo, demo }, alEvento) {
+export async function triar(alertas, { paralelo }, alEvento) {
   const r = await conRed(fetch("/api/triaje", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ alertas, paralelo, demo }),
+    body: JSON.stringify({ alertas, paralelo }),
   }));
   if (!r.ok) throw new Error(await explicar(r));
   const lector = r.body.getReader();

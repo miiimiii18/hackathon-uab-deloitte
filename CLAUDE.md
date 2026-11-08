@@ -38,7 +38,7 @@ Lo que se hizo el 8-nov:
 - **Prueba manual completa de la web** con Playwright y Chrome, de la cabecera al plan B con la API del SOC caída: todo pasa. La lista paso a paso está en [`docs/prueba-manual.md`](docs/prueba-manual.md) (unos 20–25 min, para repetirla a mano).
 - **Tres fallos encontrados y arreglados (PR #35):** el subtítulo de la cola contaba grupos de resultados guardados que no estaban en la cola; los filtros de la cola se perdían con F5 (ahora en `sessionStorage`, solo en esa pestaña); el registro `#/registro` no mostraba quién aprobó (nueva columna «Aprobó»).
 - **«Del dataset» buscaba solo en la muestra de 150** (PR #37): ahora, con texto, busca en las 11.061 alertas y sin texto lista la muestra. Importa si las 10 alertas de Deloitte salen del dataset completo.
-- **Limpieza del modo demo repetida** (paso 14 de la prueba manual): 15 resultados, 1 informe, sin decisiones humanas y registro de contención vacío. Cualquiera que use la web la vuelve a ensuciar: repetir el paso 14 antes de entrar a defender.
+- **Limpieza de los resultados guardados repetida** (paso 14 de la prueba manual): 15 resultados, 1 informe, sin decisiones humanas y registro de contención vacío. Cualquiera que use la web la vuelve a ensuciar: repetir el paso 14 antes de entrar a defender.
 - Tests: 178 (`pytest -q`), `ruff check .` limpio.
 
 Resultados medidos (gold set de 42 casos × 2 repeticiones, etiquetas nuestras y **sin revisión externa**): veredicto **80–86 %**, severidad 85–89 %, decisión 87–90 % (tres ejecuciones el 7-nov). Entre dos ejecuciones seguidas cambian entre 2 y 6 casos por la variación del modelo: **cita siempre el rango, no un número exacto**. ~13–15 s por alerta, coste 0.
@@ -72,14 +72,14 @@ Por orden de importancia para la defensa:
 - El modelo es inestable: puede escalar un falso positivo o dejar un ataque en `needs_more_info`. Tras el endurecimiento no se ha vuelto a cerrar un ataque en las pruebas, pero son reglas concretas, no una garantía.
 - **Alertas pobres:** la web solo rechaza lo que no trae nada que investigar (ni `rule_id`, ni `rule_name`, ni `entities`, ni `evidence`). Lo demás se tría: `completar_alerta()` en `src/evidencia.py` pone un `ALR-MANUAL-…` estable si falta el ID, saca severidad, runbook y nombre del catálogo de reglas, y cada cosa sale como aviso en la política. **Sin `created_at` los logs se buscan sin ventana de ±24 h** y las reglas que dependen de la hora (p. ej. `ext.logisoft`) no se pueden comprobar: el resultado será más pobre.
 - `ALR-20261007-001237` (fotos a WeTransfer) es un falso positivo conocido y el modelo lo suele subir a ataque crítico: en la demo saldrá como ataque salvo que se corrija a mano («No estoy de acuerdo»).
-- El servidor del LLM es compartido y puede saturarse: usar el **Modo demo**.
+- El servidor del LLM es compartido y puede saturarse. **Ya no hay modo demo** (se quitó el 8-nov): lo ya triado se sigue abriendo, pero el triaje en directo depende del DCC; plan B = vídeo o capturas.
 
 ## Retomar en otro ordenador
 
 Guía paso a paso para el equipo: [`docs/arrancar.md`](docs/arrancar.md). Lo que **no** está en git y hay que recrear:
 1. **`.env`** con la clave del LLM del equipo (`LLM_API_KEY`). Pásala por un canal privado; **nunca por git ni por chat**. Modelo de variables en `.env.example`.
 2. **El dataset:** `git clone https://github.com/dttdfr/DTT-UAB-The-Hack.git data/tarvia`.
-3. **Los resultados guardados del modo demo** (`data/out/web/`, ignorada por git). Se regeneran en ~1 min:
+3. **Los resultados guardados** (`data/out/web/`, ignorada por git; la web los carga al arrancar). Se regeneran en ~1 min:
    ```powershell
    python -m venv .venv ; .venv\Scripts\activate ; pip install -r requirements.txt ; copy .env.example .env   # y rellena la clave
    uvicorn mock_soc_api:app --app-dir data/tarvia/06_herramientas --port 8000      # terminal 1

@@ -5,13 +5,11 @@ import { aviso } from "./util.js";
 // se guarda qué alertas hay y en qué etapa van.
 const CLAVE_COLA = "temipo.cola";
 const CLAVE_PEGADAS = "temipo.pegadas";
-const CLAVE_DEMO = "temipo.demo";
 
 export const estado = {
   filas: new Map(), // id → { id, meta, etapa, resumen, error }
   grupos: new Map(), // id de alerta → grupo (alertas del mismo ataque con su ticket único)
   pegadas: {}, // alertas pegadas o subidas (no están en el dataset): id → alerta completa
-  demo: false,
   servidor: null,
   triando: false,
   segundos: 0,
@@ -50,7 +48,7 @@ export async function cargarGrupos() {
 }
 
 export async function iniciar() {
-  estado.demo = leer(CLAVE_DEMO, false);
+  localStorage.removeItem("temipo.demo"); // el modo demo ya no existe: se limpia lo que guardaba
   estado.pegadas = leer(CLAVE_PEGADAS, {});
   let ids = leer(CLAVE_COLA, null);
   let metas = {};
@@ -73,12 +71,6 @@ export async function iniciar() {
 }
 
 const resumenPegada = (a) => ({ alert_id: a.alert_id, rule_id: a.rule_id, rule_name: a.rule_name ?? a.rule_id, severity: a.severity, source_product: a.source_product, created_at: a.created_at });
-
-export function ponerDemo(valor) {
-  estado.demo = valor;
-  localStorage.setItem(CLAVE_DEMO, JSON.stringify(valor));
-  avisar();
-}
 
 export async function añadirAlertas({ ids = [], objetos = [] }) {
   for (const a of objetos) {
@@ -112,7 +104,7 @@ export async function triarFilas(ids, paralelo = 5) {
   const referencias = ids.map((id) => estado.pegadas[id] ?? id);
   const desde = Date.now() - 2000; // margen por si los relojes no van clavados
   try {
-    await triar(referencias, { paralelo, demo: estado.demo }, (ev) => {
+    await triar(referencias, { paralelo }, (ev) => {
       const f = estado.filas.get(ids[ev.posicion]);
       if (!f) return;
       if (ev.tipo === "etapa") f.etapa = ev.etapa;
@@ -121,7 +113,7 @@ export async function triarFilas(ids, paralelo = 5) {
     });
   } catch (e) {
     aviso(`No se pudo seguir el triaje: ${e.message}`);
-    if (e instanceof ErrorConexion && !estado.demo) await recuperar(ids, desde);
+    if (e instanceof ErrorConexion) await recuperar(ids, desde);
     for (const id of ids) {
       const f = estado.filas.get(id);
       if (f.etapa !== "listo" && f.etapa !== "error") Object.assign(f, { etapa: "error", error: e.message });

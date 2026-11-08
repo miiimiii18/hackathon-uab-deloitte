@@ -6,9 +6,9 @@ Equipo TEMIPO · Reto Deloitte · UAB The Hack 2026. Todo lo que se enseña sale
 - [ ] API del SOC: `uvicorn mock_soc_api:app --app-dir data/tarvia/06_herramientas --port 8000`.
 - [ ] Web: `python -m src.web` → http://127.0.0.1:8080. Cabecera sin avisos rojos.
 - [ ] Borrar `data/tarvia/06_herramientas/containment_log.jsonl` para empezar con el registro vacío.
-- [ ] Las 10 alertas de la cola ya triadas al menos una vez (guardadas en `data/out/web/`) para el modo demo.
+- [ ] Las 10 alertas de la cola ya triadas al menos una vez (guardadas en `data/out/web/`).
 - [ ] Una alerta nueva lista para pegar (p. ej. `evaluacion/alertas_inventadas/INV-01-fraude-iban-cfo.json`).
-- [ ] Regenerar el modo demo con el código final: `python -m scripts.preparar_demo --informe` (~1,5 min). Después **no** volver a triar las alertas de la cola en directo, para que lo guardado sea lo que se enseña.
+- [ ] Regenerar los resultados con el código final: `python -m scripts.preparar_demo --informe` (~1,5 min). Después **no** volver a triar las alertas de la cola en directo, para que lo guardado sea lo que se enseña.
 - [ ] Vídeo o capturas del recorrido por si falla la red o el servidor del DCC (lista abajo, en «Si algo falla»).
 
 ## Guion (≈5 min)
@@ -45,10 +45,10 @@ Dónde entra la IA: razonar y redactar. Dónde entra la ciber: reglas del SOC, m
 - Nada sale del portátil: sin recursos de terceros, la contención solo escribe en la API simulada.
 
 ## Si algo falla (plan B)
-Comprobado el 7-nov con la API del SOC y el LLM apuntando a direcciones que no existen: en **modo demo** las 15 alertas guardadas se reproducen en ~7 s, y el grupo, el informe N3, el detalle y la alerta original cargan bien. Lo único que no funciona sin la API del SOC es el **registro de contención** (y ejecutar acciones): da un error claro.
+Ya no hay modo demo: «Triar» siempre tría de verdad. Lo ya triado (guardado en `data/out/web/`) se sigue abriendo aunque caigan el LLM o la API del SOC: detalle, grupo, informe N3 y alerta original. Sin la API del SOC no funcionan el **registro de contención** ni ejecutar acciones (dan un error claro).
 
-- **Servidor del DCC lento o caído** → activar «Modo demo». Ojo: la cabecera **no avisa** si el DCC cae (para no bloquear el triaje por una falsa alarma cuando está saturado); la señal es que un triaje tarda más de ~30 s o da error.
-- **API del SOC caída** → la cabecera lo marca en rojo; usar el modo demo y, para la contención, el vídeo o las capturas.
+- **Servidor del DCC lento o caído** → enseñar las alertas ya triadas y, para el triaje en directo, el vídeo o las capturas. Ojo: la cabecera **no avisa** si el DCC cae (para no bloquear el triaje por una falsa alarma cuando está saturado); la señal es que un triaje tarda más de ~30 s o da error.
+- **API del SOC caída** → la cabecera lo marca en rojo; vuelve a arrancarla (terminal 1). Mientras, el vídeo o las capturas.
 - **Alerta nueva que no se puede triar en directo** (todo caído) → enseñar la captura del triaje de una alerta pegada.
 - **Pregunta difícil** → remitir a `docs/limitaciones.md`.
 - **Si preguntan por la cola:** `ALR-20261007-001237` (fotos de campaña a WeTransfer) suele salir como ataque crítico y escalado; es un falso positivo y un fallo conocido del modelo (sale mal en la evaluación). Sirve para enseñar «Corregir veredicto»: la persona lo corrige con su nombre y motivo, y no cambia lo que calculó el código.

@@ -1,6 +1,6 @@
 import { api } from "./api.js";
 import { h } from "./dom.js";
-import { estado, iniciar, ponerDemo, suscribir } from "./estado.js";
+import { estado, iniciar } from "./estado.js";
 import { montarCola } from "./vista-cola.js";
 import { montarDetalle } from "./vista-detalle.js";
 import { montarRegistro } from "./vista-registro.js";
@@ -12,7 +12,7 @@ let desmontar = () => {};
 
 const COMANDO_SOC = "uvicorn mock_soc_api:app --app-dir data/tarvia/06_herramientas --port 8000";
 
-// Lo que impide triar de verdad, dicho con el arreglo. Con el modo demo activado no estorba.
+// Lo que impide triar de verdad, dicho con el arreglo.
 function problemas(s) {
   if (s == null) return [["mal", "No hay conexión con el servidor de la web. Arráncalo con: python -m src.web"]];
   const lista = [];
@@ -23,11 +23,8 @@ function problemas(s) {
 
 function pintarSistema() {
   const lista = problemas(estado.servidor);
-  const bloquea = lista.some(([tipo]) => tipo === "mal") && !estado.demo;
   document.getElementById("sistema").replaceChildren(...lista.map(([tipo, texto]) =>
-    h("div", { class: `sistema ${tipo}`, role: tipo === "mal" ? "alert" : "status" },
-      h("span", {}, texto),
-      tipo === "mal" && bloquea ? h("button", { class: "btn sm", type: "button", onClick: () => ponerDemo(true) }, "Usar modo demo") : null)));
+    h("div", { class: `sistema ${tipo}`, role: tipo === "mal" ? "alert" : "status" }, h("span", {}, texto))));
 }
 
 function pintarCabecera() {
@@ -39,9 +36,7 @@ function pintarCabecera() {
     h("a", { class: "marca", href: "#/", "aria-label": "Parte de triaje, volver a las alertas" }, h("b", {}, "Parte de triaje"), h("span", {}, "Nivel 1 asistido por IA · reto Deloitte")),
     h("div", { class: "estado" },
       h("span", { class: "chip", title: s?.soc_url }, luz(s?.soc), "API del SOC"),
-      h("span", { class: "chip", title: s?.llm_aviso || (s ? `Modelo ${s.modelo}` : "") }, luz(s?.llm), s?.llm ? `${s.modelo} · DCC` : "LLM no disponible"),
-      h("label", { class: "chip", title: "Reproduce resultados guardados, sin tocar la API ni el LLM" },
-        h("input", { type: "checkbox", checked: estado.demo, onChange: (e) => ponerDemo(e.target.checked) }), "Modo demo")));
+      h("span", { class: "chip", title: s?.llm_aviso || (s ? `Modelo ${s.modelo}` : "") }, luz(s?.llm), s?.llm ? `${s.modelo} · DCC` : "LLM no disponible")));
   pintarSistema();
 }
 
@@ -58,12 +53,6 @@ function enrutar() {
   else desmontar = montarCola(vista);
   window.scrollTo(0, 0);
 }
-
-suscribir(() => {
-  pintarSistema();
-  const caja = cabecera.querySelector("input[type=checkbox]");
-  if (caja && caja.checked !== estado.demo) caja.checked = estado.demo;
-});
 
 window.addEventListener("hashchange", enrutar);
 pintarCabecera();
