@@ -14,9 +14,9 @@ Contexto e instrucciones para Claude Code en este repositorio.
 - **Organización:** no hay áreas fijas, todos hacemos de todo. Para no pisarnos, antes de empezar una tarea avisad al equipo (o cread un issue con la plantilla «Tarea») y trabajad cada uno en su propia rama.
 - **Demo:** la interfaz es una web propia (FastAPI + HTML/CSS/JS sin build), no Streamlit. **Si vas a trabajar en la UI, lee primero [`docs/web.md`](docs/web.md)** (cómo arrancarla y cómo está hecha). [`docs/guia-ui.md`](docs/guia-ui.md) sigue valiendo para la estructura exacta del resultado de `triar()` y las reglas de la UI; su código de Streamlit ya no se usa.
 
-## Estado a 7-nov-2026 (lee esto primero)
+## Estado a 8-nov-2026 (lee esto primero)
 
-La defensa es el domingo. **Hecho y en `main`:** niveles 1, 2, 3 y 4 funcionando, web de demo, evaluación y documentación de entrega. Plan detallado y casillas en [`docs/plan-de-trabajo.md`](docs/plan-de-trabajo.md).
+La defensa es el domingo 8-nov. **Hecho y en `main`:** niveles 1, 2, 3 y 4 funcionando, web de demo, evaluación y documentación de entrega. Plan detallado y casillas en [`docs/plan-de-trabajo.md`](docs/plan-de-trabajo.md).
 
 | Nivel | Qué hay | Dónde |
 |---|---|---|
@@ -34,6 +34,13 @@ Lo que se añadió el 7-nov (además del N1 que ya existía):
 - **Evaluación**: `scripts/evaluar.py` mide veredicto, severidad y decisión (cerrar/revisar/escalar). Resultados en `evaluacion/resultados-2026-11-07.txt`.
 - **Documentos de entrega**: `docs/limitaciones.md`, `docs/one-pager-comite.md`, `docs/pitch.md` (guion de 5 min con plan B) y `writeups/01` a `05`.
 
+Lo que se hizo el 8-nov:
+- **Prueba manual completa de la web** con Playwright y Chrome, de la cabecera al plan B con la API del SOC caída: todo pasa. La lista paso a paso está en [`docs/prueba-manual.md`](docs/prueba-manual.md) (unos 20–25 min, para repetirla a mano).
+- **Tres fallos encontrados y arreglados (PR #35):** el subtítulo de la cola contaba grupos de resultados guardados que no estaban en la cola; los filtros de la cola se perdían con F5 (ahora en `sessionStorage`, solo en esa pestaña); el registro `#/registro` no mostraba quién aprobó (nueva columna «Aprobó»).
+- **«Del dataset» buscaba solo en la muestra de 150** (PR #37): ahora, con texto, busca en las 11.061 alertas y sin texto lista la muestra. Importa si las 10 alertas de Deloitte salen del dataset completo.
+- **Limpieza del modo demo repetida** (paso 14 de la prueba manual): 15 resultados, 1 informe, sin decisiones humanas y registro de contención vacío. Cualquiera que use la web la vuelve a ensuciar: repetir el paso 14 antes de entrar a defender.
+- Tests: 178 (`pytest -q`), `ruff check .` limpio.
+
 Resultados medidos (gold set de 42 casos × 2 repeticiones, etiquetas nuestras y **sin revisión externa**): veredicto **80–86 %**, severidad 85–89 %, decisión 87–90 % (tres ejecuciones el 7-nov). Entre dos ejecuciones seguidas cambian entre 2 y 6 casos por la variación del modelo: **cita siempre el rango, no un número exacto**. ~13–15 s por alerta, coste 0.
 
 ## Arquitectura
@@ -48,7 +55,7 @@ varias alertas triadas ─► agrupar ─► ticket único del grupo ─► inve
 
 Principios que no se rompen (detalle en «Principios de diseño»): el LLM propone y redacta, **el código decide** severidad, escalado y permisos; el LLM no ejecuta nada; lo que viene de alertas y logs es dato no fiable; desconocido ≠ limpio.
 
-Módulos (`src/`): `soc_client.py` (cliente de la API con caché, traza y búsqueda exacta), `evidencia.py`, `llm.py`, `policy.py`, `ticket.py`, `triaje.py` (`triar`, `triar_en_paralelo`), `agrupar.py`, `investigacion.py`, `contencion.py`, `esquemas/` (esquemas copiados del dataset), `web/` (`api.py` FastAPI + `static/` HTML/CSS/JS sin build; ver [`docs/web.md`](docs/web.md)). Otros: `scripts/evaluar.py`, `scripts/preparar_demo.py`, `evaluacion/` (gold set `casos.json`, 9 alertas inventadas, resultados), `tests/` (177 tests).
+Módulos (`src/`): `soc_client.py` (cliente de la API con caché, traza y búsqueda exacta), `evidencia.py`, `llm.py`, `policy.py`, `ticket.py`, `triaje.py` (`triar`, `triar_en_paralelo`), `agrupar.py`, `investigacion.py`, `contencion.py`, `esquemas/` (esquemas copiados del dataset), `web/` (`api.py` FastAPI + `static/` HTML/CSS/JS sin build; ver [`docs/web.md`](docs/web.md)). Otros: `scripts/evaluar.py`, `scripts/preparar_demo.py`, `evaluacion/` (gold set `casos.json`, 9 alertas inventadas, resultados), `tests/` (178 tests).
 
 Endpoints web que importan: `POST /api/triaje` (SSE), `GET /api/grupos`, `POST /api/resultados/{id}/investigar`, `GET /api/resultados/{id}/informe`, `POST /api/resultados/{id}/decisiones`, `POST /api/resultados/{id}/acciones/{n}/ejecutar`, `GET /api/registro`.
 
@@ -56,13 +63,15 @@ Endpoints web que importan: `POST /api/triaje` (SSE), `GET /api/grupos`, `POST /
 
 Por orden de importancia para la defensa:
 1. **Ensayo de la demo con persona y cronómetro (dos veces) y vídeo/capturas del plan B.** Guion en [`docs/pitch.md`](docs/pitch.md). Antes: `python -m scripts.preparar_demo --informe` (ver abajo).
-2. **Congelar `main` las 2 últimas horas** (solo arreglos y demo).
-3. Que todo el equipo lea `politica_soc.md`, `empresa_tarvia.md` y los 10 runbooks.
-4. Mejoras opcionales: rastrear la cronología por todos los logs (hoy solo usa lo que reunió el triaje); `confidence` no baja con indicadores `unknown` (medido: no merece la pena); revisión humana independiente de las etiquetas del gold set.
+2. **Dejar la demo limpia justo antes de defender** (paso 14 de [`docs/prueba-manual.md`](docs/prueba-manual.md)): borrar `data/out/web`, `containment_log.jsonl`, regenerar con `preparar_demo --informe` y pulsar «Restablecer las 10» en el navegador de la demo, comprobando el Modo demo.
+3. **Congelar `main` las 2 últimas horas** (solo arreglos y demo).
+4. Que todo el equipo lea `politica_soc.md`, `empresa_tarvia.md` y los 10 runbooks.
+5. Mejoras opcionales: rastrear la cronología por todos los logs (hoy solo usa lo que reunió el triaje); `confidence` no baja con indicadores `unknown` (medido: no merece la pena); revisión humana independiente de las etiquetas del gold set.
 
 **Riesgos conocidos para el domingo** (todos en `docs/limitaciones.md`):
 - El modelo es inestable: puede escalar un falso positivo o dejar un ataque en `needs_more_info`. Tras el endurecimiento no se ha vuelto a cerrar un ataque en las pruebas, pero son reglas concretas, no una garantía.
 - **Alertas pobres:** la web solo rechaza lo que no trae nada que investigar (ni `rule_id`, ni `rule_name`, ni `entities`, ni `evidence`). Lo demás se tría: `completar_alerta()` en `src/evidencia.py` pone un `ALR-MANUAL-…` estable si falta el ID, saca severidad, runbook y nombre del catálogo de reglas, y cada cosa sale como aviso en la política. **Sin `created_at` los logs se buscan sin ventana de ±24 h** y las reglas que dependen de la hora (p. ej. `ext.logisoft`) no se pueden comprobar: el resultado será más pobre.
+- `ALR-20261007-001237` (fotos a WeTransfer) es un falso positivo conocido y el modelo lo suele subir a ataque crítico: en la demo saldrá como ataque salvo que se corrija a mano («No estoy de acuerdo»).
 - El servidor del LLM es compartido y puede saturarse: usar el **Modo demo**.
 
 ## Retomar en otro ordenador
