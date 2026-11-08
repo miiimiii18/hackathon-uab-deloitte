@@ -63,7 +63,7 @@ Endpoints web que importan: `POST /api/triaje` (SSE), `GET /api/grupos`, `POST /
 
 Por orden de importancia para la defensa:
 1. **Ensayo de la demo con persona y cronómetro (dos veces) y vídeo/capturas del plan B.** Guion en [`docs/pitch.md`](docs/pitch.md). Antes: `python -m scripts.preparar_demo --informe` (ver abajo).
-2. **Dejar la demo limpia justo antes de defender** (paso 14 de [`docs/prueba-manual.md`](docs/prueba-manual.md)): borrar `data/out/web`, `containment_log.jsonl`, regenerar con `preparar_demo --informe` y pulsar «Restablecer las 10» en el navegador de la demo, comprobando el Modo demo.
+2. **Dejar la demo limpia justo antes de defender** (paso 14 de [`docs/prueba-manual.md`](docs/prueba-manual.md)): borrar `data/out/web`, `containment_log.jsonl`, regenerar con `preparar_demo --informe` y pulsar «Vaciar la bandeja» en el navegador de la demo. La bandeja empieza vacía y solo tiene las alertas que se cargan (las cargadas sustituyen a las anteriores).
 3. **Congelar `main` las 2 últimas horas** (solo arreglos y demo).
 4. Que todo el equipo lea `politica_soc.md`, `empresa_tarvia.md` y los 10 runbooks.
 5. Mejoras opcionales: rastrear la cronología por todos los logs (hoy solo usa lo que reunió el triaje); `confidence` no baja con indicadores `unknown` (medido: no merece la pena); revisión humana independiente de las etiquetas del gold set.

@@ -50,15 +50,10 @@ export async function cargarGrupos() {
 export async function iniciar() {
   localStorage.removeItem("temipo.demo"); // el modo demo ya no existe: se limpia lo que guardaba
   estado.pegadas = leer(CLAVE_PEGADAS, {});
-  let ids = leer(CLAVE_COLA, null);
-  let metas = {};
-  if (!ids) {
-    const inicial = await api.colaInicial();
-    ids = inicial.map((a) => a.alert_id);
-    metas = Object.fromEntries(inicial.map((a) => [a.alert_id, a]));
-  }
+  // La bandeja empieza vacía: solo tiene las alertas que se cargan (se recuerdan al recargar la página).
+  const ids = leer(CLAVE_COLA, []);
   for (const id of ids) {
-    const meta = metas[id] ?? (estado.pegadas[id] ? resumenPegada(estado.pegadas[id]) : await api.alerta(id).catch(() => null));
+    const meta = estado.pegadas[id] ? resumenPegada(estado.pegadas[id]) : await api.alerta(id).catch(() => null);
     estado.filas.set(id, fila(id, meta));
   }
   for (const r of await api.resultados()) {
@@ -72,7 +67,10 @@ export async function iniciar() {
 
 const resumenPegada = (a) => ({ alert_id: a.alert_id, rule_id: a.rule_id, rule_name: a.rule_name ?? a.rule_id, severity: a.severity, source_product: a.source_product, created_at: a.created_at });
 
+// Las alertas cargadas SUSTITUYEN a las de la bandeja: se analizan solo las que se meten.
 export async function añadirAlertas({ ids = [], objetos = [] }) {
+  estado.filas.clear();
+  estado.pegadas = {};
   for (const a of objetos) {
     estado.pegadas[a.alert_id] = a;
     estado.filas.set(a.alert_id, fila(a.alert_id, resumenPegada(a)));
@@ -85,12 +83,12 @@ export async function añadirAlertas({ ids = [], objetos = [] }) {
   return [...ids, ...objetos.map((a) => a.alert_id)];
 }
 
-export async function restablecerCola() {
-  localStorage.removeItem(CLAVE_COLA);
-  localStorage.removeItem(CLAVE_PEGADAS);
+export function vaciarBandeja() {
   estado.filas.clear();
   estado.pegadas = {};
-  await iniciar();
+  estado.segundos = 0;
+  guardarCola();
+  avisar();
 }
 
 export async function triarFilas(ids, paralelo = 5) {

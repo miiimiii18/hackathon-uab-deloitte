@@ -1,6 +1,6 @@
 import { añadir, h } from "./dom.js";
 import { abrirPanel } from "./panel.js";
-import { estado, restablecerCola, suscribir, triarFilas } from "./estado.js";
+import { estado, suscribir, triarFilas, vaciarBandeja } from "./estado.js";
 import { cortar, ETAPA, gravedad, legible, minutos, SELLO, SEVERIDADES, veredicto, VEREDICTO } from "./util.js";
 
 // La cola como un «libro» de alertas: cada fila dice qué ha pasado, por qué (con su cita), qué
@@ -84,7 +84,7 @@ function actualizarFila(el, f, n) {
   if (listo) {
     if (res.razon_ia?.texto) {
       r.razon.className = "razon";
-      r.razon.append(h("span", { class: "ia-marca" }, "✦ "), h("span", { class: "ia-voz" }, res.razon_ia.texto), " ", res.razon_ia.cita ? h("span", { class: "cita" }, res.razon_ia.cita) : null);
+      añadir(r.razon, [h("span", { class: "ia-marca" }, "✦ "), h("span", { class: "ia-voz" }, res.razon_ia.texto), " ", res.razon_ia.cita ? h("span", { class: "cita" }, res.razon_ia.cita) : null]);
     }
     if (res.razon_codigo) r.extra.append(h("div", { class: "razon-co", title: legible(res.razon_codigo) }, `{ } ${cortar(legible(res.razon_codigo), 170)}`));
     const corrige = res.veredicto_llm && res.veredicto_llm !== res.veredicto;
@@ -167,7 +167,7 @@ export function montarCola(raiz) {
       h("div", {}, h("b", {}, "○"), h("h3", {}, "desconocido no es limpio")),
       h("div", {}, h("b", {}, "±24 h"), h("h3", {}, "de contexto por alerta"))),
     h("div", { style: { display: "flex", justifyContent: "flex-end", paddingTop: "10px" } },
-      h("button", { class: "btn sm", type: "button", onClick: () => restablecerCola() }, "Restablecer la bandeja inicial")));
+      h("button", { class: "btn sm", type: "button", onClick: () => vaciarBandeja() }, "Vaciar la bandeja")));
 
   btnTriar.addEventListener("click", () => triarFilas([...estado.filas.keys()], estado.servidor?.paralelo ?? 5));
 
@@ -187,7 +187,7 @@ export function montarCola(raiz) {
       actualizarFila(el, f, i + 1);
       if (cuerpo.children[i] !== el) cuerpo.insertBefore(el, cuerpo.children[i] ?? null);
     });
-    if (!lista.length) cuerpo.replaceChildren(h("div", { class: "vacio" }, "La bandeja está vacía. Pulsa «Cargar alertas»."));
+    if (!lista.length) cuerpo.replaceChildren(h("div", { class: "vacio" }, "Carga el JSON con las alertas para empezar."));
     else if (!visibles.length) cuerpo.replaceChildren(h("div", { class: "vacio" }, "Ninguna alerta cumple los filtros."));
 
     const listas = lista.filter((f) => f.etapa === "listo");
@@ -198,9 +198,9 @@ export function montarCola(raiz) {
     cifras.revisar.textContent = cuenta("revisar");
     cifras.cerrar.textContent = cuenta("cerrar");
     cifras.grupos.textContent = new Set([...estado.grupos].filter(([id]) => estado.filas.has(id)).map(([, x]) => x.grupo_id)).size;
-    titular.textContent = estado.triando ? `Triando ${lista.length} alertas…` : `${lista.length} alerta${lista.length === 1 ? "" : "s"} en la bandeja.`;
+    titular.textContent = estado.triando ? `Triando ${lista.length} alertas…` : lista.length ? `${lista.length} alerta${lista.length === 1 ? "" : "s"} en la bandeja.` : "La bandeja está vacía.";
     entradilla.textContent = visibles.length === lista.length ? "" : `A la vista: ${visibles.length} de ${lista.length}.`;
-    btnTriar.textContent = estado.triando ? "Triando…" : `Triar las ${lista.length}`;
+    btnTriar.textContent = estado.triando ? "Triando…" : lista.length ? `Triar las ${lista.length}` : "Triar";
     btnTriar.disabled = estado.triando || !lista.length;
   }
 

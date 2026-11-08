@@ -94,10 +94,11 @@ export function abrirPanel() {
     const n = modo === "dataset" ? marcadas.size : validas.length;
     pie.replaceChildren(
       h("div", { style: { display: "flex", justifyContent: "space-between", color: "var(--mu)", fontSize: "13px", gap: "10px", flexWrap: "wrap" } },
-        h("span", {}, `${n} alerta${n === 1 ? "" : "s"} lista${n === 1 ? "" : "s"}`), h("span", {}, "Unos 20 s por alerta, 5 a la vez")),
+        h("span", {}, `${n} alerta${n === 1 ? "" : "s"} lista${n === 1 ? "" : "s"}`),
+        estado.filas.size ? h("span", {}, `Sustituyen a las ${estado.filas.size} de la bandeja`) : null),
       h("div", { class: "fila-btn" },
-        h("button", { class: "btn", type: "button", disabled: n === 0, onClick: () => añadir(false) }, "Solo añadir a la cola"),
-        h("button", { class: "btn go", type: "button", disabled: n === 0 || estado.triando, onClick: () => añadir(true) }, "Añadir y triar")),
+        h("button", { class: "btn", type: "button", disabled: n === 0 || estado.triando, onClick: () => añadir(false) }, "Cargar en la bandeja"),
+        h("button", { class: "btn go", type: "button", disabled: n === 0 || estado.triando, onClick: () => añadir(true) }, "Cargar y triar")),
     );
   }
 
@@ -106,7 +107,7 @@ export function abrirPanel() {
       : await añadirAlertas({ objetos: validas });
     cerrar();
     if (triar) triarFilas(ids, estado.servidor?.paralelo ?? 5);
-    else aviso(`${ids.length} alerta${ids.length === 1 ? "" : "s"} en la cola`, "ok");
+    else aviso(`${ids.length} alerta${ids.length === 1 ? "" : "s"} en la bandeja`, "ok");
   }
 
   async function leerFicheros(ficheros) {
