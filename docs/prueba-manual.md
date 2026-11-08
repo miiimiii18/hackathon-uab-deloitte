@@ -52,7 +52,7 @@ Recorrido de principio a fin para comprobar la web antes de la defensa. Dura uno
 
 ## 7. Agrupación e informe N3 (phishing de SSO)
 - [ ] → «Cargar alertas» → pestaña «Subir archivos» → «Elegir archivos» → `data/sso5.jsonl` → «Añadir y triar». ✅ Las 5 llevan «Mismo ataque · 5 alertas».
-  *(La pestaña «Del dataset» solo busca en la muestra de 150 alertas y de estas 5 solo `-011785` está en ella.)*
+  *(También vale la pestaña «Del dataset»: con texto busca en las 11.061 alertas; sin texto lista la muestra de 150.)*
 - [ ] → Entra en una. ✅ Panel «Mismo ataque» con las 5 alertas enlazadas (pulsa una) y «Ticket único JSON».
 - [ ] ✅ Panel «Informe de investigación · nivel 3». Si no existe, «Generar informe de investigación» (~15 s).
 - [ ] ✅ El informe tiene paciente cero, acceso inicial, línea de tiempo con IDs de evento, alcance, causa raíz, relación con otros incidentes, plan de contención, erradicación, a quién avisar, huecos de detección, preguntas abiertas y «Cumple el esquema de Deloitte». → «Informe JSON» lo descarga.

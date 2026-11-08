@@ -247,10 +247,10 @@ def cola_inicial() -> list[dict[str, Any]]:
 
 @app.get("/api/alertas")
 def buscar_alertas(q: str = "", limite: int = 40) -> list[dict[str, Any]]:
-    """Busca en la muestra de desarrollo (150 alertas variadas) por ID, regla o producto."""
+    """Sin texto lista la muestra de desarrollo (150 alertas variadas); con texto busca en todo el dataset."""
     indice = _indice()
-    ids = _ids_muestra() or list(indice)
     texto = q.strip().lower()
+    ids = list(indice) if texto else _ids_muestra() or list(indice)
     salida = []
     for i in ids:
         a = indice.get(i)

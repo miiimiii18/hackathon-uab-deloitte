@@ -133,7 +133,7 @@ export function abrirPanel() {
       zona.addEventListener("drop", (e) => { e.preventDefault(); zona.classList.remove("sobre"); leerFicheros(e.dataTransfer.files); });
       cuerpo.replaceChildren(zona, resumen);
     } else {
-      buscador = h("input", { type: "search", placeholder: "Buscar por ID, regla o producto (muestra de 150)", "aria-label": "Buscar alerta",
+      buscador = h("input", { type: "search", placeholder: "Buscar por ID, regla o producto (todo el dataset)", "aria-label": "Buscar alerta",
         style: { minHeight: "44px", padding: "0 14px", borderRadius: "12px", border: "1px solid #3a444a", background: "#0a0e10", color: "var(--tx)", font: "14px var(--f-b)" } });
       lista = h("div", { class: "lista-ds" });
       let espera;
