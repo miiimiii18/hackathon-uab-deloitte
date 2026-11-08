@@ -147,7 +147,7 @@ export function montarCola(raiz) {
       cuerpo = h("div")),
     h("section", { class: "limites", "aria-label": "Límites" },
       h("span", { class: "chip", style: { color: "var(--tx)" } }, "Lo que no resuelve"),
-      h("span", {}, "Acierto del 85 % en 42 casos etiquetados por nosotros"),
+      h("span", {}, "Acierto del 80–86 % en 42 casos etiquetados por nosotros"),
       h("span", {}, "Agrupa solo las alertas triadas de la cola, no busca otras en el dataset"),
       h("span", {}, "Desconocido no es limpio: baja la confianza"),
       h("span", {}, "Depende del servidor compartido del DCC"),
